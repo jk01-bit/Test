@@ -1,0 +1,30 @@
+# Core Trading Libraries
+kiteconnect==4.2.0
+pandas==2.1.4
+numpy==1.26.2
+pandas-ta==0.3.14b0
+
+# Database
+sqlalchemy==2.0.23
+
+# Scheduling
+APScheduler==3.10.4
+
+# Notifications
+python-telegram-bot==20.7
+
+# Utilities
+python-dotenv==1.0.0
+pytz==2023.3
+requests==2.31.0
+
+# Logging & Monitoring
+colorlog==6.8.0
+
+# Testing
+pytest==7.4.3
+pytest-cov==4.1.0
+
+# Data Visualization (for backtesting)
+matplotlib==3.8.2
+seaborn==0.13.0
