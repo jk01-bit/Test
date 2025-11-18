@@ -150,6 +150,11 @@ class TradingBot:
             if success:
                 self.is_connected = True
                 self.logger.info("[OK] Connected to broker successfully")
+
+                # Reload instrument tokens now that broker is connected
+                self.logger.info("Loading instrument tokens...")
+                self.market_data.reload_instruments()
+
                 return True
             else:
                 self.logger.error("[FAIL] Failed to connect to broker")
