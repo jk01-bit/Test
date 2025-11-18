@@ -47,7 +47,7 @@ class TradingBot:
         # Validate credentials
         try:
             Credentials.validate()
-            self.logger.info("✓ Credentials validated")
+            self.logger.info("[OK] Credentials validated")
         except ValueError as e:
             self.logger.error(f"Credential validation failed: {e}")
             sys.exit(1)
@@ -57,27 +57,27 @@ class TradingBot:
 
         # Database
         self.db = DatabaseManager()
-        self.logger.info("✓ Database initialized")
+        self.logger.info("[OK] Database initialized")
 
         # Broker
         self.broker = ZerodhaBroker()
-        self.logger.info("✓ Broker initialized")
+        self.logger.info("[OK] Broker initialized")
 
         # Market data
         self.market_data = MarketDataHandler(self.broker, self.db)
-        self.logger.info("✓ Market data handler initialized")
+        self.logger.info("[OK] Market data handler initialized")
 
         # Indicators
         self.indicators = IndicatorEngine()
-        self.logger.info("✓ Indicator engine initialized")
+        self.logger.info("[OK] Indicator engine initialized")
 
         # Option chain
         self.option_chain = OptionChainHandler(self.broker)
-        self.logger.info("✓ Option chain handler initialized")
+        self.logger.info("[OK] Option chain handler initialized")
 
         # Filters
         self.filters = EntryFilters(self.db)
-        self.logger.info("✓ Entry filters initialized")
+        self.logger.info("[OK] Entry filters initialized")
 
         # Signal generator
         self.signal_generator = SignalGenerator(
@@ -87,27 +87,27 @@ class TradingBot:
             self.filters,
             self.db,
         )
-        self.logger.info("✓ Signal generator initialized")
+        self.logger.info("[OK] Signal generator initialized")
 
         # Order manager
         self.order_manager = OrderManager(
             self.broker, self.option_chain, self.db
         )
-        self.logger.info("✓ Order manager initialized")
+        self.logger.info("[OK] Order manager initialized")
 
         # Exit manager
         self.exit_manager = ExitManager(
             self.order_manager, self.option_chain, self.db
         )
-        self.logger.info("✓ Exit manager initialized")
+        self.logger.info("[OK] Exit manager initialized")
 
         # Risk manager
         self.risk_manager = RiskManager(self.db, self.option_chain)
-        self.logger.info("✓ Risk manager initialized")
+        self.logger.info("[OK] Risk manager initialized")
 
         # Notifications
         self.notifier = NotificationManager()
-        self.logger.info("✓ Notification manager initialized")
+        self.logger.info("[OK] Notification manager initialized")
 
         # State
         self.is_running = False
@@ -410,7 +410,7 @@ def main():
         print("\n\nShutdown requested...")
         bot.stop()
     except Exception as e:
-        print(f"\n\n❌ Critical error: {e}")
+        print(f"\n\n[ERROR] Critical error: {e}")
         bot.stop()
         sys.exit(1)
 
