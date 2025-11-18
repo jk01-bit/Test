@@ -121,7 +121,7 @@ class MarketDataHandler:
 
             token = self.instrument_tokens.get(symbol_name)
             if not token:
-                logger.error(f"Instrument token not found for {symbol}")
+                logger.error(f"Instrument identifier not found for {symbol}")
                 return pd.DataFrame()
 
             df = self.broker.get_historical_data(
