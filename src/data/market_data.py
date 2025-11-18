@@ -37,18 +37,36 @@ class MarketDataHandler:
     def _load_instrument_tokens(self):
         """Load and cache instrument tokens"""
         try:
+            # Check if broker is connected
+            if not hasattr(self.broker, 'is_connected') or not self.broker.is_connected:
+                logger.warning("Broker not connected yet. Instrument tokens will be loaded after connection.")
+                return
+
             instruments = self.broker.get_instruments("NSE")
+
+            if instruments.empty:
+                logger.error("No instruments returned from broker")
+                return
 
             # Store tokens for indices
             for symbol in ["NIFTY 50", "NIFTY BANK", "INDIA VIX"]:
                 data = instruments[instruments["tradingsymbol"] == symbol]
                 if not data.empty:
                     self.instrument_tokens[symbol] = data.iloc[0]["instrument_token"]
+                    logger.debug(f"Loaded token for {symbol}: {data.iloc[0]['instrument_token']}")
+                else:
+                    logger.warning(f"Symbol '{symbol}' not found in NSE instruments")
 
             logger.info(f"Loaded {len(self.instrument_tokens)} instrument tokens")
 
         except Exception as e:
             logger.error(f"Error loading instrument tokens: {e}")
+
+    def reload_instruments(self):
+        """Reload instrument tokens (call after broker connection)"""
+        logger.info("Reloading instrument tokens...")
+        self.instrument_tokens.clear()
+        self._load_instrument_tokens()
 
     def get_spot_price(self, symbol: str) -> Optional[float]:
         """
