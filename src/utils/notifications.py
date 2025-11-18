@@ -104,7 +104,7 @@ class NotificationManager:
     def notify_trade_entry(self, trade: dict):
         """Notify trade entry"""
         message = (
-            f"<b>🎯 TRADE ENTERED</b>\n\n"
+            f"<b>TRADE ENTERED</b>\n\n"
             f"ID: {trade['trade_id']}\n"
             f"Instrument: {trade['instrument']}\n"
             f"Type: {trade['spread_type']}\n"
@@ -120,7 +120,7 @@ class NotificationManager:
 
     def notify_trade_exit(self, trade: dict, exit_reason: str, pnl: float):
         """Notify trade exit"""
-        emoji = "✅" if pnl > 0 else "❌"
+        emoji = "[WIN]" if pnl > 0 else "[LOSS]"
 
         message = (
             f"<b>{emoji} TRADE EXITED</b>\n\n"
@@ -136,7 +136,7 @@ class NotificationManager:
     def notify_stop_loss_hit(self, trade: dict, pnl: float):
         """Notify stop loss hit"""
         message = (
-            f"<b>🛑 STOP LOSS HIT</b>\n\n"
+            f"<b>STOP LOSS HIT</b>\n\n"
             f"ID: {trade['trade_id']}\n"
             f"Instrument: {trade['instrument']}\n"
             f"Loss: ₹{pnl:.2f}\n"
@@ -144,29 +144,29 @@ class NotificationManager:
         )
 
         self.send_telegram(message)
-        self.send_email("⚠️ Stop Loss Hit", message.replace("<b>", "").replace("</b>", ""))
+        self.send_email("[WARNING] Stop Loss Hit", message.replace("<b>", "").replace("</b>", ""))
 
     def notify_daily_loss_limit(self, daily_pnl: float, limit: float):
         """Notify daily loss limit reached"""
         message = (
-            f"<b>⛔ DAILY LOSS LIMIT REACHED</b>\n\n"
+            f"<b>DAILY LOSS LIMIT REACHED</b>\n\n"
             f"Daily P&L: ₹{daily_pnl:.2f}\n"
             f"Limit: ₹{limit:.2f}\n"
             f"Trading stopped for today."
         )
 
         self.send_telegram(message)
-        self.send_email("🚨 Daily Loss Limit Reached", message.replace("<b>", "").replace("</b>", ""))
+        self.send_email("[ALERT] Daily Loss Limit Reached", message.replace("<b>", "").replace("</b>", ""))
 
     def notify_error(self, error_msg: str):
         """Notify error"""
-        message = f"<b>⚠️ ERROR</b>\n\n{error_msg}"
+        message = f"<b>[ERROR]</b>\n\n{error_msg}"
         self.send_telegram(message)
 
     def notify_daily_report(self, report: dict):
         """Send daily performance report"""
         message = (
-            f"<b>📊 DAILY REPORT</b>\n"
+            f"<b>DAILY REPORT</b>\n"
             f"{'='*30}\n"
             f"Date: {report.get('date', 'N/A')}\n\n"
             f"<b>Trades:</b>\n"
@@ -191,7 +191,7 @@ class NotificationManager:
     def notify_system_start(self):
         """Notify system start"""
         message = (
-            f"<b>🚀 TRADING BOT STARTED</b>\n\n"
+            f"<b>TRADING BOT STARTED</b>\n\n"
             f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
             f"Mode: {Credentials.TRADING_MODE.upper()}"
         )
@@ -200,7 +200,7 @@ class NotificationManager:
     def notify_system_stop(self):
         """Notify system stop"""
         message = (
-            f"<b>🛑 TRADING BOT STOPPED</b>\n\n"
+            f"<b>TRADING BOT STOPPED</b>\n\n"
             f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
         )
         self.send_telegram(message)

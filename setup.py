@@ -21,7 +21,7 @@ def create_directories():
     print("Creating directories...")
     for directory in directories:
         os.makedirs(directory, exist_ok=True)
-        print(f"  ✓ {directory}/")
+        print(f"  [OK] {directory}/")
 
 
 def create_env_file():
@@ -50,8 +50,8 @@ DATABASE_URL=sqlite:///data/trading.db
 # Logging
 LOG_LEVEL=INFO
 """)
-    print("  ✓ .env file created")
-    print("\n⚠️  Please edit .env and add your credentials!")
+    print("  [OK] .env file created")
+    print("\n[WARNING] Please edit .env and add your credentials!")
 
 
 def install_dependencies():
@@ -59,9 +59,9 @@ def install_dependencies():
     print("\nInstalling dependencies...")
     try:
         subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", "requirements.txt"])
-        print("  ✓ Dependencies installed successfully")
+        print("  [OK] Dependencies installed successfully")
     except subprocess.CalledProcessError as e:
-        print(f"  ✗ Error installing dependencies: {e}")
+        print(f"  [FAIL] Error installing dependencies: {e}")
         return False
     return True
 
@@ -73,10 +73,10 @@ def initialize_database():
         from src.database.db_manager import DatabaseManager
 
         db = DatabaseManager()
-        print("  ✓ Database initialized")
+        print("  [OK] Database initialized")
         return True
     except Exception as e:
-        print(f"  ✗ Error initializing database: {e}")
+        print(f"  [FAIL] Error initializing database: {e}")
         return False
 
 
@@ -89,10 +89,10 @@ def run_tests():
         from src.brokers.zerodha_broker import ZerodhaBroker
         from src.utils.logger import setup_logger
 
-        print("  ✓ All imports successful")
+        print("  [OK] All imports successful")
         return True
     except Exception as e:
-        print(f"  ✗ Error in tests: {e}")
+        print(f"  [FAIL] Error in tests: {e}")
         return False
 
 
@@ -112,19 +112,19 @@ def main():
 
     # Step 3: Install dependencies
     if not install_dependencies():
-        print("\n❌ Setup failed at dependency installation")
+        print("\n[ERROR] Setup failed at dependency installation")
         return
 
     # Step 4: Initialize database
     if not initialize_database():
-        print("\n❌ Setup failed at database initialization")
+        print("\n[ERROR] Setup failed at database initialization")
         return
 
     # Step 5: Run tests
     if not run_tests():
-        print("\n⚠️  Setup completed with warnings")
+        print("\n[WARNING] Setup completed with warnings")
     else:
-        print("\n✅ Setup completed successfully!")
+        print("\n[OK] Setup completed successfully!")
 
     print("""
     Next steps:

@@ -65,7 +65,7 @@ class EntryFilters:
             )
             return False, FILTER_VIX_HIGH
 
-        logger.info(f"✓ VIX filter passed: {india_vix} < {MAX_VIX}")
+        logger.info(f"[OK] VIX filter passed: {india_vix} < {MAX_VIX}")
         return True, "VIX OK"
 
     def check_gap_filter(self, gap_percent: float) -> Tuple[bool, str]:
@@ -88,7 +88,7 @@ class EntryFilters:
             return False, FILTER_GAP_LARGE
 
         logger.info(
-            f"✓ Gap filter passed: {gap_percent:.2f}% < {MAX_GAP_PERCENT}%"
+            f"[OK] Gap filter passed: {gap_percent:.2f}% < {MAX_GAP_PERCENT}%"
         )
         return True, "Gap OK"
 
@@ -110,7 +110,7 @@ class EntryFilters:
         # Check if within entry window
         if ENTRY_START_TIME <= time_now <= ENTRY_END_TIME:
             logger.info(
-                f"✓ Time filter passed: {time_now.strftime('%H:%M')} "
+                f"[OK] Time filter passed: {time_now.strftime('%H:%M')} "
                 f"in window [{ENTRY_START_TIME.strftime('%H:%M')} - "
                 f"{ENTRY_END_TIME.strftime('%H:%M')}]"
             )
@@ -154,11 +154,11 @@ class EntryFilters:
                 return False, FILTER_EXPIRY_LATE
 
             logger.info(
-                f"✓ Expiry filter passed: Expiry day but before cutoff time"
+                f"[OK] Expiry filter passed: Expiry day but before cutoff time"
             )
             return True, "Expiry OK"
 
-        logger.info("✓ Expiry filter passed: Not expiry day")
+        logger.info("[OK] Expiry filter passed: Not expiry day")
         return True, "Not expiry day"
 
     def check_trend_filter(self, trend: str) -> Tuple[bool, str]:
@@ -175,7 +175,7 @@ class EntryFilters:
             logger.warning(f"No clear trend: {trend}")
             return False, FILTER_NO_TREND
 
-        logger.info(f"✓ Trend filter passed: {trend}")
+        logger.info(f"[OK] Trend filter passed: {trend}")
         return True, f"Trend: {trend}"
 
     def check_position_filter(self) -> Tuple[bool, str]:
@@ -194,7 +194,7 @@ class EntryFilters:
             return False, FILTER_POSITION_EXISTS
 
         logger.info(
-            f"✓ Position filter passed: {len(open_trades)}/{MAX_POSITIONS} positions"
+            f"[OK] Position filter passed: {len(open_trades)}/{MAX_POSITIONS} positions"
         )
         return True, "No blocking positions"
 
@@ -219,8 +219,8 @@ class EntryFilters:
             return False, FILTER_CAPITAL_INSUFFICIENT
 
         logger.info(
-            f"✓ Capital filter passed: ₹{available_capital:.2f} >= "
-            f"₹{required_margin:.2f}"
+            f"[OK] Capital filter passed: Rs.{available_capital:.2f} >= "
+            f"Rs.{required_margin:.2f}"
         )
         return True, "Capital OK"
 
@@ -247,8 +247,8 @@ class EntryFilters:
             return False, FILTER_DAILY_LOSS_LIMIT
 
         logger.info(
-            f"✓ Daily loss filter passed: P&L ₹{daily_pnl:.2f} "
-            f"(Limit: ₹{daily_loss_limit})"
+            f"[OK] Daily loss filter passed: P&L Rs.{daily_pnl:.2f} "
+            f"(Limit: Rs.{daily_loss_limit})"
         )
         return True, "Within daily limit"
 
@@ -300,7 +300,7 @@ class EntryFilters:
         for filter_name, (passed, reason) in filters:
             if not passed:
                 failed_filters.append(f"{filter_name}: {reason}")
-                logger.error(f"✗ {filter_name} filter FAILED: {reason}")
+                logger.error(f"[FAIL] {filter_name} filter FAILED: {reason}")
 
         logger.info("=" * 60)
 
@@ -309,6 +309,6 @@ class EntryFilters:
             logger.warning(f"FILTERS FAILED: {failure_reason}")
             return False, failure_reason
 
-        logger.info("✓ ALL FILTERS PASSED - SIGNAL IS VALID")
+        logger.info("[OK] ALL FILTERS PASSED - SIGNAL IS VALID")
         logger.info("=" * 60)
         return True, "All filters passed"
