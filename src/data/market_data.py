@@ -57,7 +57,13 @@ class MarketDataHandler:
                 else:
                     logger.warning(f"Symbol '{symbol}' not found in NSE instruments")
 
-            logger.info(f"Loaded {len(self.instrument_tokens)} instrument tokens")
+            # Display loaded tokens summary
+            logger.info("="*60)
+            logger.info(f"INSTRUMENT TOKENS LOADED: {len(self.instrument_tokens)}/3")
+            logger.info("="*60)
+            for symbol, token in self.instrument_tokens.items():
+                logger.info(f"  {symbol:15s} -> Token: {token}")
+            logger.info("="*60)
 
         except Exception as e:
             logger.error(f"Error loading instrument tokens: {e}")

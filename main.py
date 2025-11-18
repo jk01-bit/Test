@@ -143,6 +143,10 @@ class TradingBot:
             if DRY_RUN_MODE:
                 self.logger.warning("DRY RUN MODE - Not connecting to broker")
                 self.is_connected = True
+
+                # Display trading setup even in dry run mode
+                self._display_trading_setup()
+
                 return True
 
             success = self.broker.connect(request_token)
@@ -155,6 +159,9 @@ class TradingBot:
                 self.logger.info("Loading instrument tokens...")
                 self.market_data.reload_instruments()
 
+                # Display current trading setup
+                self._display_trading_setup()
+
                 return True
             else:
                 self.logger.error("[FAIL] Failed to connect to broker")
@@ -163,6 +170,63 @@ class TradingBot:
         except Exception as e:
             self.logger.error(f"Error connecting to broker: {e}")
             return False
+
+    def _display_trading_setup(self):
+        """Display current trading setup configuration"""
+        try:
+            from config.settings import (
+                TOTAL_CAPITAL,
+                MARGIN_UTILIZATION,
+                MAX_DAILY_LOSS,
+                MAX_POSITIONS,
+                POSITION_SIZE,
+                FAST_EMA,
+                SLOW_EMA,
+                TIMEFRAME,
+                ENTRY_START_TIME,
+                ENTRY_END_TIME,
+                PROFIT_TARGET_MIN,
+                PROFIT_TARGET_MAX,
+                STOP_LOSS_MULTIPLIER,
+                MAX_VIX,
+                MAX_GAP_PERCENT,
+            )
+
+            self.logger.info("\n" + "="*60)
+            self.logger.info("CURRENT TRADING SETUP")
+            self.logger.info("="*60)
+
+            # Mode
+            mode = "DRY RUN (Paper Trading)" if DRY_RUN_MODE else "LIVE TRADING"
+            self.logger.info(f"Mode:              {mode}")
+
+            # Instruments
+            instruments_str = ", ".join(TRADING_INSTRUMENTS)
+            self.logger.info(f"Instruments:       {instruments_str}")
+
+            # Position sizes
+            self.logger.info(f"Position Sizes:    NIFTY: {POSITION_SIZE.get('NIFTY', 0)} lots, "
+                           f"BANKNIFTY: {POSITION_SIZE.get('BANKNIFTY', 0)} lots")
+
+            # Capital management
+            usable_capital = TOTAL_CAPITAL * MARGIN_UTILIZATION
+            self.logger.info(f"Capital:           ₹{TOTAL_CAPITAL:,} (Using: ₹{usable_capital:,})")
+            self.logger.info(f"Max Daily Loss:    ₹{MAX_DAILY_LOSS:,}")
+            self.logger.info(f"Max Positions:     {MAX_POSITIONS}")
+
+            # Strategy parameters
+            self.logger.info(f"EMA Parameters:    Fast: {FAST_EMA}, Slow: {SLOW_EMA}, Timeframe: {TIMEFRAME}")
+            self.logger.info(f"Entry Window:      {ENTRY_START_TIME.strftime('%H:%M')} - {ENTRY_END_TIME.strftime('%H:%M')}")
+            self.logger.info(f"Profit Targets:    {PROFIT_TARGET_MIN*100:.0f}% - {PROFIT_TARGET_MAX*100:.0f}% premium decay")
+            self.logger.info(f"Stop Loss:         {STOP_LOSS_MULTIPLIER}x premium")
+
+            # Risk filters
+            self.logger.info(f"Risk Filters:      Max VIX: {MAX_VIX}, Max Gap: {MAX_GAP_PERCENT}%")
+
+            self.logger.info("="*60 + "\n")
+
+        except Exception as e:
+            self.logger.error(f"Error displaying trading setup: {e}")
 
     def check_and_generate_signals(self):
         """Check for entry signals"""
