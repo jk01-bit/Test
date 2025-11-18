@@ -149,10 +149,10 @@ class TradingBot:
 
             if success:
                 self.is_connected = True
-                self.logger.info("✅ Connected to broker successfully")
+                self.logger.info("[OK] Connected to broker successfully")
                 return True
             else:
-                self.logger.error("❌ Failed to connect to broker")
+                self.logger.error("[FAIL] Failed to connect to broker")
                 return False
 
         except Exception as e:
@@ -178,7 +178,7 @@ class TradingBot:
             # Process valid signals
             for instrument, signal in signals.items():
                 if signal and signal["filters_passed"]:
-                    self.logger.info(f"✅ Valid signal for {instrument}")
+                    self.logger.info(f"[SIGNAL] Valid signal for {instrument}")
 
                     # Check if we can take position
                     can_take, reason = self.risk_manager.can_take_new_position(
@@ -215,7 +215,7 @@ class TradingBot:
             trade = self.order_manager.execute_spread_order(signal)
 
             if trade:
-                self.logger.info(f"✅ Trade executed successfully: {trade['trade_id']}")
+                self.logger.info(f"[OK] Trade executed successfully: {trade['trade_id']}")
 
                 # Send notification
                 self.notifier.notify_trade_entry(trade)
@@ -226,7 +226,7 @@ class TradingBot:
                     {"was_executed": True, "trade_id": trade["trade_id"]},
                 )
             else:
-                self.logger.error("❌ Failed to execute trade")
+                self.logger.error("[FAIL] Failed to execute trade")
 
         except Exception as e:
             self.logger.error(f"Error executing trade: {e}", exc_info=True)
@@ -238,7 +238,7 @@ class TradingBot:
             # Check circuit breaker
             triggered, reason = self.risk_manager.check_circuit_breaker()
             if triggered:
-                self.logger.error(f"⛔ CIRCUIT BREAKER TRIGGERED: {reason}")
+                self.logger.error(f"[CIRCUIT BREAKER] TRIGGERED: {reason}")
                 self.exit_manager.force_exit_all_positions(reason)
                 self.notifier.notify_error(f"Circuit breaker: {reason}")
                 self.stop()
@@ -292,7 +292,7 @@ class TradingBot:
         """Main trading loop"""
         try:
             self.is_running = True
-            self.logger.info("🚀 TRADING BOT STARTED")
+            self.logger.info("[START] TRADING BOT STARTED")
             self.notifier.notify_system_start()
 
             iteration = 0
@@ -370,7 +370,7 @@ class TradingBot:
             self.exit_manager.force_exit_all_positions("SYSTEM_SHUTDOWN")
 
         self.notifier.notify_system_stop()
-        self.logger.info("✅ Trading bot stopped")
+        self.logger.info("[OK] Trading bot stopped")
 
 
 def main():
@@ -388,19 +388,19 @@ def main():
     # Get login URL for manual connection
     if not DRY_RUN_MODE:
         login_url = bot.broker.get_login_url()
-        print(f"\n🔗 Login URL: {login_url}")
+        print(f"\n[LOGIN] Login URL: {login_url}")
         print("\nPlease login and paste the request token from the redirect URL:")
         request_token = input("Request Token: ").strip()
 
         # Connect to broker
         if not bot.connect_broker(request_token):
-            print("❌ Failed to connect to broker. Exiting...")
+            print("[ERROR] Failed to connect to broker. Exiting...")
             sys.exit(1)
     else:
-        print("\n⚠️  DRY RUN MODE - No real trades will be placed")
+        print("\n[WARNING] DRY RUN MODE - No real trades will be placed")
         bot.connect_broker()
 
-    print("\n✅ Bot initialized successfully!")
+    print("\n[OK] Bot initialized successfully!")
     print("\nStarting trading bot...\n")
 
     # Run bot

@@ -221,11 +221,11 @@ class SignalGenerator:
             self._save_signal_to_db(signal)
 
             if filters_passed:
-                logger.info("✅ VALID SIGNAL GENERATED!")
+                logger.info("[VALID SIGNAL] SIGNAL GENERATED!")
                 logger.info(f"{'='*60}\n")
                 return signal
             else:
-                logger.warning(f"❌ Signal filtered out: {filter_reason}")
+                logger.warning(f"[FILTERED] Signal filtered out: {filter_reason}")
                 logger.info(f"{'='*60}\n")
                 return None
 

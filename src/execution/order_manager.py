@@ -177,9 +177,9 @@ class OrderManager:
             # Save to database
             trade = self.db.create_trade(trade_data)
 
-            logger.info(f"✅ Trade created successfully: {trade_id}")
-            logger.info(f"Stop Loss: ₹{stop_loss:.2f}")
-            logger.info(f"Target: ₹{target_premium:.2f}")
+            logger.info(f"[OK] Trade created successfully: {trade_id}")
+            logger.info(f"Stop Loss: Rs.{stop_loss:.2f}")
+            logger.info(f"Target: Rs.{target_premium:.2f}")
             logger.info(f"{'='*60}\n")
 
             return trade_data
@@ -291,11 +291,11 @@ class OrderManager:
             self.db.update_trade(trade["trade_id"], update_data)
 
             logger.info(f"Position closed successfully")
-            logger.info(f"Entry Premium: ₹{trade['net_premium']:.2f}")
-            logger.info(f"Exit Premium: ₹{exit_net_premium:.2f}")
-            logger.info(f"Gross P&L: ₹{gross_pnl:.2f}")
-            logger.info(f"Net P&L: ₹{net_pnl:.2f} ({pnl_percent:.2f}%)")
-            logger.info(f"Result: {'✅ WIN' if is_winning else '❌ LOSS'}")
+            logger.info(f"Entry Premium: Rs.{trade['net_premium']:.2f}")
+            logger.info(f"Exit Premium: Rs.{exit_net_premium:.2f}")
+            logger.info(f"Gross P&L: Rs.{gross_pnl:.2f}")
+            logger.info(f"Net P&L: Rs.{net_pnl:.2f} ({pnl_percent:.2f}%)")
+            logger.info(f"Result: {'[WIN]' if is_winning else '[LOSS]'}")
             logger.info(f"{'='*60}\n")
 
             return True

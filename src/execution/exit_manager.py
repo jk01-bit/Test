@@ -98,7 +98,7 @@ class ExitManager:
             # Check 1: Profit Target (40-50% premium decay)
             if premium_decay_percent >= (PROFIT_TARGET_MIN * 100):
                 logger.info(
-                    f"✅ Profit target reached: {premium_decay_percent:.2f}% decay"
+                    f"[TARGET] Profit target reached: {premium_decay_percent:.2f}% decay"
                 )
                 return True, EXIT_REASON_PROFIT_TARGET
 
@@ -107,7 +107,7 @@ class ExitManager:
 
             if current_sell_premium >= stop_loss_value:
                 logger.warning(
-                    f"🛑 Stop loss hit: Current ₹{current_sell_premium:.2f} >= SL ₹{stop_loss_value:.2f}"
+                    f"[STOPLOSS] Stop loss hit: Current Rs.{current_sell_premium:.2f} >= SL Rs.{stop_loss_value:.2f}"
                 )
                 return True, EXIT_REASON_STOP_LOSS
 
@@ -115,7 +115,7 @@ class ExitManager:
             current_time = datetime.now(IST).time()
 
             if current_time >= EXIT_TIME:
-                logger.info(f"⏰ Time exit: {current_time.strftime('%H:%M')} >= {EXIT_TIME.strftime('%H:%M')}")
+                logger.info(f"[TIME EXIT] Time exit: {current_time.strftime('%H:%M')} >= {EXIT_TIME.strftime('%H:%M')}")
                 return True, EXIT_REASON_TIME_EXIT
 
             # No exit condition met
