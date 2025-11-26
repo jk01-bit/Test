@@ -32,6 +32,7 @@ class Trade(Base):
 
     # Entry Details
     entry_time = Column(DateTime, nullable=False)
+    expiry = Column(DateTime, nullable=False)  # Option expiry date
     entry_spot_price = Column(Float, nullable=False)
     trend = Column(String(20), nullable=False)  # UPTREND or DOWNTREND
 

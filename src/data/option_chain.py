@@ -143,7 +143,10 @@ class OptionChainHandler:
             )
 
             if not trading_symbol:
-                logger.error(f"Could not find trading symbol for {symbol} {strike} {option_type}")
+                logger.error(
+                    f"Could not find trading symbol for {symbol} {int(strike)} {option_type} "
+                    f"expiry={expiry.strftime('%Y-%m-%d')}"
+                )
                 return None
 
             premium = self.broker.get_ltp(f"NFO:{trading_symbol}")
