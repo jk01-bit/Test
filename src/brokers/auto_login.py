@@ -4,25 +4,58 @@ Handles automated login to Zerodha using Selenium and TOTP
 """
 import logging
 import time
-from typing import Optional, Tuple
+from typing import Optional, Tuple, TYPE_CHECKING
 from urllib.parse import urlparse, parse_qs
 
 import pyotp
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-from selenium.common.exceptions import TimeoutException, WebDriverException
 
-try:
-    from webdriver_manager.chrome import ChromeDriverManager
-    WEBDRIVER_MANAGER_AVAILABLE = True
-except ImportError:
-    WEBDRIVER_MANAGER_AVAILABLE = False
+# Lazy imports for selenium - only imported when actually needed
+# This allows the module to load even if selenium is not installed
+SELENIUM_AVAILABLE = False
+WEBDRIVER_MANAGER_AVAILABLE = False
+
+if TYPE_CHECKING:
+    from selenium import webdriver
 
 from config.credentials import Credentials
+
+
+def _check_selenium_available():
+    """Check if selenium is available and import it lazily"""
+    global SELENIUM_AVAILABLE, WEBDRIVER_MANAGER_AVAILABLE
+
+    try:
+        from selenium import webdriver
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.support import expected_conditions as EC
+        from selenium.webdriver.chrome.service import Service
+        from selenium.webdriver.chrome.options import Options
+        from selenium.common.exceptions import TimeoutException, WebDriverException
+        SELENIUM_AVAILABLE = True
+    except ImportError:
+        raise ImportError(
+            "Selenium is required for auto-login but is not installed. "
+            "Please install it with: pip install selenium"
+        )
+
+    try:
+        from webdriver_manager.chrome import ChromeDriverManager
+        WEBDRIVER_MANAGER_AVAILABLE = True
+    except ImportError:
+        WEBDRIVER_MANAGER_AVAILABLE = False
+
+    return {
+        'webdriver': webdriver,
+        'By': By,
+        'WebDriverWait': WebDriverWait,
+        'EC': EC,
+        'Service': Service,
+        'Options': Options,
+        'TimeoutException': TimeoutException,
+        'WebDriverException': WebDriverException,
+        'ChromeDriverManager': ChromeDriverManager if WEBDRIVER_MANAGER_AVAILABLE else None,
+    }
 
 logger = logging.getLogger(__name__)
 
@@ -47,15 +80,29 @@ class ZerodhaAutoLogin:
         """
         self.headless = headless
         self.timeout = timeout
-        self.driver: Optional[webdriver.Chrome] = None
+        self.driver = None
         self.totp = None
+        self._selenium_modules = None
 
         # Initialize TOTP generator if secret is available
         if Credentials.ZERODHA_TOTP_SECRET:
             self.totp = pyotp.TOTP(Credentials.ZERODHA_TOTP_SECRET)
 
-    def _setup_driver(self) -> webdriver.Chrome:
+    def _get_selenium_modules(self):
+        """Lazily load selenium modules"""
+        if self._selenium_modules is None:
+            self._selenium_modules = _check_selenium_available()
+        return self._selenium_modules
+
+    def _setup_driver(self):
         """Setup Chrome WebDriver"""
+        modules = self._get_selenium_modules()
+        webdriver = modules['webdriver']
+        Options = modules['Options']
+        Service = modules['Service']
+        WebDriverException = modules['WebDriverException']
+        ChromeDriverManager = modules['ChromeDriverManager']
+
         chrome_options = Options()
 
         if self.headless:
@@ -74,7 +121,7 @@ class ZerodhaAutoLogin:
         chrome_options.add_experimental_option("useAutomationExtension", False)
 
         try:
-            if WEBDRIVER_MANAGER_AVAILABLE:
+            if ChromeDriverManager is not None:
                 service = Service(ChromeDriverManager().install())
                 driver = webdriver.Chrome(service=service, options=chrome_options)
             else:
@@ -116,6 +163,13 @@ class ZerodhaAutoLogin:
         """
         request_token = None
         error_message = None
+
+        # Get selenium modules (will raise ImportError if selenium not installed)
+        modules = self._get_selenium_modules()
+        By = modules['By']
+        WebDriverWait = modules['WebDriverWait']
+        EC = modules['EC']
+        TimeoutException = modules['TimeoutException']
 
         try:
             logger.info("Starting automated Zerodha login...")
@@ -242,6 +296,9 @@ class ZerodhaAutoLogin:
         """Check if there's an error message on the page"""
         try:
             if self.driver:
+                modules = self._get_selenium_modules()
+                By = modules['By']
+
                 # Look for common error elements
                 error_selectors = [
                     ".error-message",
