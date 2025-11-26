@@ -8,7 +8,7 @@ from datetime import datetime
 import pandas as pd
 
 from src.brokers.zerodha_broker import ZerodhaBroker
-from config.constants import OPTION_TYPE_CE, OPTION_TYPE_PE, LOT_SIZES
+from config.constants import OPTION_TYPE_CE, OPTION_TYPE_PE, LOT_SIZES, STRIKE_INTERVALS
 from config.settings import ATM_OFFSET_MIN, ATM_OFFSET_MAX, SPREAD_WIDTH
 
 logger = logging.getLogger(__name__)
@@ -69,13 +69,27 @@ class OptionChainHandler:
         try:
             atm_strike = self.get_atm_strike(symbol, spot_price)
 
+            # Get strike interval for the symbol (NIFTY=50, BANKNIFTY=100)
+            strike_interval = STRIKE_INTERVALS.get(symbol, 50)
+
+            # Round offset and spread width to valid multiples of strike interval
+            # For NIFTY (50): 150 -> 150, 200 -> 200
+            # For BANKNIFTY (100): 150 -> 200, 200 -> 200
+            adjusted_offset = round(offset / strike_interval) * strike_interval
+            adjusted_spread_width = round(SPREAD_WIDTH / strike_interval) * strike_interval
+
+            logger.info(
+                f"Strike interval for {symbol}: {strike_interval}, "
+                f"Adjusted offset: {adjusted_offset}, Adjusted spread width: {adjusted_spread_width}"
+            )
+
             if option_type == OPTION_TYPE_PE:
                 # Bull Put Spread
                 # Sell ATM - offset (OTM put)
-                sell_strike = atm_strike - offset
+                sell_strike = atm_strike - adjusted_offset
 
                 # Buy further OTM (Sell - SPREAD_WIDTH)
-                buy_strike = sell_strike - SPREAD_WIDTH
+                buy_strike = sell_strike - adjusted_spread_width
 
                 logger.info(
                     f"Bull Put Spread strikes: Sell {sell_strike} PE, "
@@ -85,10 +99,10 @@ class OptionChainHandler:
             else:  # CE
                 # Bear Call Spread
                 # Sell ATM + offset (OTM call)
-                sell_strike = atm_strike + offset
+                sell_strike = atm_strike + adjusted_offset
 
                 # Buy further OTM (Sell + SPREAD_WIDTH)
-                buy_strike = sell_strike + SPREAD_WIDTH
+                buy_strike = sell_strike + adjusted_spread_width
 
                 logger.info(
                     f"Bear Call Spread strikes: Sell {sell_strike} CE, "
