@@ -328,18 +328,41 @@ class ZerodhaAutoLogin:
             totp_field.clear()
             totp_field.send_keys(totp_code)
 
-            # Step 5: Click continue/submit for TOTP
-            submit_button = self._wait_for_element(
-                wait,
-                EC.element_to_be_clickable((By.CSS_SELECTOR, LOGIN_BUTTON)),
-                LOGIN_BUTTON,
-                "Submit TOTP"
-            )
-            submit_button.click()
+            # Step 5: Wait for redirect (Zerodha auto-submits after TOTP entry)
+            # The TOTP field typically auto-submits when 6 digits are entered
+            logger.info("Waiting for auto-submit or manual submit...")
+            time.sleep(2)  # Brief wait to allow auto-submit to trigger
 
-            # Step 6: Wait for redirect and extract request token
-            logger.info("Waiting for redirect...")
-            time.sleep(5)  # Increased wait for redirect
+            # Check if page has already redirected (auto-submit behavior)
+            current_url = self.driver.current_url
+            already_redirected = self._extract_request_token(current_url) is not None
+
+            if not already_redirected:
+                # Only click submit if we haven't already redirected
+                logger.info("Auto-submit did not trigger, clicking submit button...")
+                try:
+                    # Use shorter timeout since page might redirect any moment
+                    short_wait = WebDriverWait(self.driver, 10)
+                    submit_button = self._wait_for_element(
+                        short_wait,
+                        EC.element_to_be_clickable((By.CSS_SELECTOR, LOGIN_BUTTON)),
+                        LOGIN_BUTTON,
+                        "Submit TOTP"
+                    )
+                    submit_button.click()
+                    # Wait for redirect after manual submit
+                    logger.info("Waiting for redirect after submit...")
+                    time.sleep(5)
+                except TimeoutException:
+                    # Button might have disappeared due to auto-redirect, check URL
+                    logger.info("Submit button not found, checking if already redirected...")
+                    current_url = self.driver.current_url
+                    if self._extract_request_token(current_url) is not None:
+                        logger.info("Page already redirected successfully")
+                    else:
+                        raise  # Re-raise if we haven't redirected
+            else:
+                logger.info("Page already redirected via auto-submit")
 
             # Check for successful redirect with request_token
             current_url = self.driver.current_url
