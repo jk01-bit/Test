@@ -6,8 +6,8 @@ Market Constants and Reference Data
 # LOT SIZES (Update these periodically as they change)
 # ============================================================================
 LOT_SIZES = {
-    "NIFTY": 25,        # Current Nifty lot size
-    "BANKNIFTY": 15,    # Current BankNifty lot size
+    "NIFTY": 75,        # Current Nifty lot size
+    "BANKNIFTY": 35,    # Current BankNifty lot size
     "FINNIFTY": 25,     # FinNifty lot size (for future use)
     "MIDCPNIFTY": 50,   # MidCap Nifty lot size (for future use)
 }
