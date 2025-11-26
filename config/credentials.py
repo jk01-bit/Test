@@ -57,6 +57,31 @@ class Credentials:
         return True
 
     @classmethod
+    def validate_auto_login(cls):
+        """Validate that auto-login credentials are present"""
+        required = [
+            ("ZERODHA_USER_ID", cls.ZERODHA_USER_ID),
+            ("ZERODHA_PASSWORD", cls.ZERODHA_PASSWORD),
+            ("ZERODHA_TOTP_SECRET", cls.ZERODHA_TOTP_SECRET),
+        ]
+
+        missing = [name for name, value in required if not value]
+
+        if missing:
+            return False, missing
+
+        return True, []
+
+    @classmethod
+    def is_auto_login_configured(cls):
+        """Check if auto-login credentials are configured"""
+        return all([
+            cls.ZERODHA_USER_ID,
+            cls.ZERODHA_PASSWORD,
+            cls.ZERODHA_TOTP_SECRET,
+        ])
+
+    @classmethod
     def is_live_trading(cls):
         """Check if we're in live trading mode"""
         return cls.TRADING_MODE.lower() == "live"

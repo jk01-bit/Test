@@ -390,17 +390,39 @@ def main():
     # Initialize bot
     bot = TradingBot()
 
-    # Get login URL for manual connection
+    # Connect to broker
     if not DRY_RUN_MODE:
-        login_url = bot.broker.get_login_url()
-        print(f"\n[LOGIN] Login URL: {login_url}")
-        print("\nPlease login and paste the request token from the redirect URL:")
-        request_token = input("Request Token: ").strip()
+        connected = False
 
-        # Connect to broker
-        if not bot.connect_broker(request_token):
-            print("[ERROR] Failed to connect to broker. Exiting...")
-            sys.exit(1)
+        # Check if auto-login is configured
+        if Credentials.is_auto_login_configured():
+            print("\n[AUTO-LOGIN] Auto-login credentials detected")
+            print("[AUTO-LOGIN] Attempting automated login...")
+
+            # Try auto-login first
+            connected = bot.broker.auto_login(headless=True)
+
+            if connected:
+                print("[AUTO-LOGIN] Successfully logged in automatically!")
+                bot.is_connected = True
+
+                # Reload instrument tokens now that broker is connected
+                print("[INFO] Loading instrument tokens...")
+                bot.market_data.reload_instruments()
+            else:
+                print("[AUTO-LOGIN] Automated login failed, falling back to manual login")
+
+        # Fall back to manual login if auto-login fails or not configured
+        if not connected:
+            login_url = bot.broker.get_login_url()
+            print(f"\n[LOGIN] Login URL: {login_url}")
+            print("\nPlease login and paste the request token from the redirect URL:")
+            request_token = input("Request Token: ").strip()
+
+            # Connect to broker
+            if not bot.connect_broker(request_token):
+                print("[ERROR] Failed to connect to broker. Exiting...")
+                sys.exit(1)
     else:
         print("\n[WARNING] DRY RUN MODE - No real trades will be placed")
         bot.connect_broker()
