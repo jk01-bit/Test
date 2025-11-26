@@ -45,6 +45,9 @@ logs/*.log
 *.sqlite3
 data/*.db
 
+# Token cache (auto-login)
+data/.token_cache.json
+
 # OS
 .DS_Store
 Thumbs.db

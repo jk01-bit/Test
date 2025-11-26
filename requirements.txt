@@ -18,6 +18,11 @@ python-dotenv>=1.0.0
 pytz>=2023.3
 requests>=2.31.0
 
+# Auto Login (Zerodha)
+pyotp>=2.9.0
+selenium>=4.15.0
+webdriver-manager>=4.0.0
+
 # Logging & Monitoring
 colorlog>=6.8.0
 

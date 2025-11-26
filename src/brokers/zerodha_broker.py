@@ -3,8 +3,11 @@ Zerodha Broker Integration
 Handles all Zerodha Kite API interactions
 """
 import logging
+import os
+import json
 from typing import List, Dict, Optional, Tuple
 from datetime import datetime, timedelta
+from pathlib import Path
 import pandas as pd
 from kiteconnect import KiteConnect
 import pytz
@@ -21,6 +24,9 @@ from config.settings import PRODUCT_TYPE, EXCHANGE, ORDER_TYPE_LIMIT
 
 logger = logging.getLogger(__name__)
 
+# Token cache file path
+TOKEN_CACHE_FILE = Path("data/.token_cache.json")
+
 
 class ZerodhaBroker:
     """Zerodha broker interface"""
@@ -30,6 +36,7 @@ class ZerodhaBroker:
         self.kite = None
         self.access_token = None
         self.is_connected = False
+        self._token_expiry = None
 
     def connect(self, request_token: Optional[str] = None) -> bool:
         """
@@ -50,6 +57,9 @@ class ZerodhaBroker:
                     request_token, api_secret=Credentials.ZERODHA_API_SECRET
                 )
                 self.access_token = data["access_token"]
+
+                # Cache the token for future use
+                self._save_token_cache(self.access_token)
             else:
                 # For automated trading, you'd implement TOTP-based login here
                 # This is a simplified version
@@ -68,6 +78,159 @@ class ZerodhaBroker:
             logger.error(f"Failed to connect to Zerodha: {e}")
             self.is_connected = False
             return False
+
+    def auto_login(self, headless: bool = True) -> bool:
+        """
+        Perform automated login using stored credentials
+
+        Args:
+            headless: Run browser in headless mode (default: True)
+
+        Returns:
+            bool: True if login successful
+        """
+        try:
+            # First, try to use cached token
+            if self._try_cached_token():
+                logger.info("Connected using cached token")
+                return True
+
+            # Check if auto-login credentials are configured
+            if not Credentials.is_auto_login_configured():
+                logger.warning("Auto-login credentials not configured")
+                return False
+
+            logger.info("Starting automated login process...")
+
+            # Import here to avoid dependency issues
+            from src.brokers.auto_login import perform_auto_login
+
+            # Get login URL
+            login_url = self.get_login_url()
+            logger.info(f"Login URL: {login_url}")
+
+            # Perform automated login
+            success, request_token, error = perform_auto_login(
+                login_url, headless=headless
+            )
+
+            if success and request_token:
+                logger.info("Auto-login successful, connecting with request token...")
+                return self.connect(request_token)
+            else:
+                logger.error(f"Auto-login failed: {error}")
+                return False
+
+        except Exception as e:
+            logger.error(f"Auto-login error: {e}", exc_info=True)
+            return False
+
+    def _try_cached_token(self) -> bool:
+        """
+        Try to connect using a cached token
+
+        Returns:
+            bool: True if cached token is valid
+        """
+        try:
+            cached_token = self._load_token_cache()
+            if not cached_token:
+                logger.debug("No cached token found")
+                return False
+
+            # Check if token is from today (Zerodha tokens expire at 6 AM next day)
+            cache_date = cached_token.get("date")
+            today = datetime.now(pytz.timezone("Asia/Kolkata")).strftime("%Y-%m-%d")
+
+            if cache_date != today:
+                logger.info("Cached token is from a different day, requires fresh login")
+                self._clear_token_cache()
+                return False
+
+            # Try to use the cached token
+            self.kite = KiteConnect(api_key=Credentials.ZERODHA_API_KEY)
+            self.access_token = cached_token.get("access_token")
+            self.kite.set_access_token(self.access_token)
+
+            # Validate the token by making a simple API call
+            if self.validate_token():
+                self.is_connected = True
+                return True
+            else:
+                logger.info("Cached token is invalid")
+                self._clear_token_cache()
+                return False
+
+        except Exception as e:
+            logger.warning(f"Error using cached token: {e}")
+            self._clear_token_cache()
+            return False
+
+    def validate_token(self) -> bool:
+        """
+        Validate the current access token
+
+        Returns:
+            bool: True if token is valid
+        """
+        try:
+            if not self.kite or not self.access_token:
+                return False
+
+            # Make a simple API call to validate token
+            profile = self.kite.profile()
+
+            if profile and profile.get("user_id") == Credentials.ZERODHA_USER_ID:
+                logger.info(f"Token validated for user: {profile.get('user_name')}")
+                return True
+
+            return False
+
+        except Exception as e:
+            logger.warning(f"Token validation failed: {e}")
+            return False
+
+    def _save_token_cache(self, access_token: str):
+        """Save access token to cache file"""
+        try:
+            # Ensure data directory exists
+            TOKEN_CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+            cache_data = {
+                "access_token": access_token,
+                "date": datetime.now(pytz.timezone("Asia/Kolkata")).strftime("%Y-%m-%d"),
+                "timestamp": datetime.now(pytz.timezone("Asia/Kolkata")).isoformat(),
+            }
+
+            with open(TOKEN_CACHE_FILE, "w") as f:
+                json.dump(cache_data, f)
+
+            logger.debug("Token cached successfully")
+
+        except Exception as e:
+            logger.warning(f"Failed to cache token: {e}")
+
+    def _load_token_cache(self) -> Optional[dict]:
+        """Load access token from cache file"""
+        try:
+            if not TOKEN_CACHE_FILE.exists():
+                return None
+
+            with open(TOKEN_CACHE_FILE, "r") as f:
+                return json.load(f)
+
+        except Exception as e:
+            logger.warning(f"Failed to load token cache: {e}")
+            return None
+
+    def _clear_token_cache(self):
+        """Clear the token cache file"""
+        try:
+            if TOKEN_CACHE_FILE.exists():
+                TOKEN_CACHE_FILE.unlink()
+                logger.debug("Token cache cleared")
+        except Exception as e:
+            logger.warning(f"Failed to clear token cache: {e}")
 
     def get_login_url(self) -> str:
         """Get Zerodha login URL"""
