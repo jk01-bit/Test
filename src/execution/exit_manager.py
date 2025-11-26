@@ -63,11 +63,16 @@ class ExitManager:
         try:
             # Get current premiums
             symbol = trade["instrument"]
-            expiry = datetime.fromisoformat(str(trade["entry_time"]))  # Simplification
 
-            # Fetch actual expiry (should be stored in trade)
-            from src.data.market_data import MarketDataHandler
-            # This is simplified - in production, store expiry in trade
+            # Use stored expiry from trade
+            expiry = trade.get("expiry")
+            if expiry is None:
+                logger.warning(f"Trade {trade['trade_id']} has no expiry, cannot check exit conditions")
+                return False, "Missing expiry information"
+
+            # Ensure expiry is a datetime object
+            if isinstance(expiry, str):
+                expiry = datetime.fromisoformat(expiry)
 
             current_sell_premium = self.option_chain.get_option_premium(
                 symbol=symbol,
@@ -149,6 +154,7 @@ class ExitManager:
                 trade_dict = {
                     "trade_id": trade.trade_id,
                     "instrument": trade.instrument,
+                    "expiry": trade.expiry,  # Include option expiry
                     "sell_strike": trade.sell_strike,
                     "buy_strike": trade.buy_strike,
                     "option_type": trade.option_type,
@@ -206,6 +212,7 @@ class ExitManager:
                 trade_dict = {
                     "trade_id": trade.trade_id,
                     "instrument": trade.instrument,
+                    "expiry": trade.expiry,  # Include option expiry
                     "sell_strike": trade.sell_strike,
                     "buy_strike": trade.buy_strike,
                     "option_type": trade.option_type,
@@ -244,10 +251,10 @@ class ExitManager:
             if not trade or trade.status != "OPEN":
                 return None
 
-            # Fetch current premiums
+            # Fetch current premiums using stored expiry
             current_sell_premium = self.option_chain.get_option_premium(
                 symbol=trade.instrument,
-                expiry=trade.entry_time,  # Simplified
+                expiry=trade.expiry,
                 strike=trade.sell_strike,
                 option_type=trade.option_type,
             )

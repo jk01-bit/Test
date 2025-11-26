@@ -210,15 +210,23 @@ class ZerodhaBroker:
             instruments = self.get_instruments("NFO")
             expiry_str = expiry.strftime("%Y-%m-%d")
 
+            # Convert strike to int for comparison (Zerodha stores strikes as integers)
+            strike_int = int(strike)
+
             option = instruments[
                 (instruments["name"] == symbol)
                 & (instruments["expiry"].astype(str) == expiry_str)
-                & (instruments["strike"] == strike)
+                & (instruments["strike"] == strike_int)
                 & (instruments["instrument_type"] == option_type)
             ]
 
             if not option.empty:
                 return option.iloc[0]["tradingsymbol"]
+
+            # Log debug info if symbol not found
+            logger.debug(
+                f"Trading symbol not found: {symbol} {expiry_str} {strike_int} {option_type}"
+            )
             return None
 
         except Exception as e:

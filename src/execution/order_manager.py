@@ -156,6 +156,7 @@ class OrderManager:
                 "instrument": symbol,
                 "spread_type": signal["spread_type"],
                 "entry_time": datetime.now(IST),
+                "expiry": expiry,  # Store option expiry date
                 "entry_spot_price": signal["spot_price"],
                 "trend": signal["trend"],
                 "sell_strike": sell_strike,
@@ -204,10 +205,16 @@ class OrderManager:
             logger.info(f"{'='*60}")
 
             symbol = trade["instrument"]
-            expiry_str = datetime.fromisoformat(str(trade["entry_time"])).strftime("%Y-%m-%d")
 
-            # For simplicity, assuming weekly expiry (should fetch actual expiry)
-            expiry = self.broker.get_next_expiry(symbol)
+            # Use the stored expiry from the trade
+            expiry = trade.get("expiry")
+            if expiry is None:
+                logger.error("Trade does not have expiry information")
+                return False
+
+            # Ensure expiry is a datetime object
+            if isinstance(expiry, str):
+                expiry = datetime.fromisoformat(expiry)
 
             # Get trading symbols
             sell_symbol, buy_symbol = self.option_chain.get_trading_symbols(
