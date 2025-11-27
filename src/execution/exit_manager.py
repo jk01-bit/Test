@@ -108,16 +108,24 @@ class ExitManager:
             # P&L = (Entry Premium - Current Premium) × Lot Size
             pnl_per_lot = (entry_net_premium - current_net_premium) * trade["lot_size"]
 
-            logger.debug(
-                f"{trade['trade_id']}: Entry Rs.{entry_net_premium:.2f}, "
-                f"Current Rs.{current_net_premium:.2f}, "
-                f"P&L per lot: Rs.{pnl_per_lot:.2f}"
+            # Calculate total P&L for all lots
+            num_lots = trade["quantity"] / trade["lot_size"]
+            total_pnl = pnl_per_lot * num_lots
+
+            logger.info(
+                f"{trade['trade_id']}: Entry Net Premium Rs.{entry_net_premium:.2f}, "
+                f"Current Net Premium Rs.{current_net_premium:.2f}, "
+                f"Lot Size: {trade['lot_size']}, Quantity: {trade['quantity']}, "
+                f"Num Lots: {num_lots:.0f}, "
+                f"P&L per lot: Rs.{pnl_per_lot:.2f}, Total P&L: Rs.{total_pnl:.2f}, "
+                f"Target: Rs.{PROFIT_TARGET_PER_LOT} per lot"
             )
 
             # Check 1: Profit Target (Rs.600+ per lot)
             if pnl_per_lot >= PROFIT_TARGET_PER_LOT:
                 logger.info(
-                    f"[TARGET] Profit target reached: Rs.{pnl_per_lot:.2f} per lot (Target: Rs.{PROFIT_TARGET_PER_LOT})"
+                    f"[TARGET] Profit target reached: Rs.{pnl_per_lot:.2f} per lot "
+                    f"(Target: Rs.{PROFIT_TARGET_PER_LOT}), Total P&L: Rs.{total_pnl:.2f}"
                 )
                 return True, EXIT_REASON_PROFIT_TARGET
 

@@ -489,22 +489,22 @@ class ZerodhaBroker:
             Tuple of (sell_order_id, buy_order_id)
         """
         try:
-            # Place sell order
-            sell_order_id = self.place_order(
-                trading_symbol=sell_symbol,
-                transaction_type=TRANSACTION_TYPE_SELL,
-                quantity=quantity,
-                order_type=ORDER_TYPE_LIMIT,
-                price=sell_price,
-            )
-
-            # Place buy order
+            # Place buy order FIRST (hedge protection before taking risk)
             buy_order_id = self.place_order(
                 trading_symbol=buy_symbol,
                 transaction_type=TRANSACTION_TYPE_BUY,
                 quantity=quantity,
                 order_type=ORDER_TYPE_LIMIT,
                 price=buy_price,
+            )
+
+            # Place sell order SECOND (take risk after protection is in place)
+            sell_order_id = self.place_order(
+                trading_symbol=sell_symbol,
+                transaction_type=TRANSACTION_TYPE_SELL,
+                quantity=quantity,
+                order_type=ORDER_TYPE_LIMIT,
+                price=sell_price,
             )
 
             return sell_order_id, buy_order_id
