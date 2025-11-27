@@ -52,10 +52,14 @@ ENTRY_ALLOWED_DAYS = [0, 1, 2, 3, 4]  # Monday to Friday
 # ============================================================================
 # EXIT RULES
 # ============================================================================
-PROFIT_TARGET_MIN = 0.40  # 40% premium decay
-PROFIT_TARGET_MAX = 0.50  # 50% premium decay
+# Profit Target: Rs.600+ per lot
+PROFIT_TARGET_PER_LOT = 600  # Exit when profit reaches Rs.600 per lot
 EXIT_TIME = time(15, 10)  # Exit all positions by 3:10 PM
 STOP_LOSS_MULTIPLIER = 1.5  # SL = 1.5x premium of sold leg
+
+# Legacy percentage-based targets (not used anymore)
+PROFIT_TARGET_MIN = 0.40  # 40% premium decay
+PROFIT_TARGET_MAX = 0.50  # 50% premium decay
 
 # ============================================================================
 # FILTERS & RISK CONTROLS

@@ -13,8 +13,7 @@ from src.database.db_manager import DatabaseManager
 
 from config.settings import (
     EXIT_TIME,
-    PROFIT_TARGET_MIN,
-    PROFIT_TARGET_MAX,
+    PROFIT_TARGET_PER_LOT,
     STOP_LOSS_MULTIPLIER,
 )
 from config.constants import (
@@ -88,22 +87,37 @@ class ExitManager:
             # Calculate current status
             entry_net_premium = trade["net_premium"]
 
-            # For profit, we want the premium to decay (go lower)
-            # Current P&L per lot
-            premium_decay_percent = (
-                (entry_net_premium - current_sell_premium) / entry_net_premium
-            ) * 100 if entry_net_premium > 0 else 0
-
-            logger.debug(
-                f"{trade['trade_id']}: Entry ₹{entry_net_premium:.2f}, "
-                f"Current ₹{current_sell_premium:.2f}, "
-                f"Decay {premium_decay_percent:.2f}%"
+            # Get buy premium for accurate P&L calculation
+            current_buy_premium = self.option_chain.get_option_premium(
+                symbol=symbol,
+                expiry=expiry,
+                strike=trade["buy_strike"],
+                option_type=trade["option_type"],
             )
 
-            # Check 1: Profit Target (40-50% premium decay)
-            if premium_decay_percent >= (PROFIT_TARGET_MIN * 100):
+            if current_buy_premium is None:
+                logger.warning(f"Failed to fetch buy leg premium for {trade['trade_id']}")
+                current_buy_premium = trade["buy_premium"]  # Use entry premium as fallback
+
+            # Calculate current net premium
+            current_net_premium = current_sell_premium - current_buy_premium
+
+            # Calculate P&L per lot
+            # Entry: We received entry_net_premium
+            # Exit: We need to pay current_net_premium
+            # P&L = (Entry Premium - Current Premium) × Lot Size
+            pnl_per_lot = (entry_net_premium - current_net_premium) * trade["lot_size"]
+
+            logger.debug(
+                f"{trade['trade_id']}: Entry Rs.{entry_net_premium:.2f}, "
+                f"Current Rs.{current_net_premium:.2f}, "
+                f"P&L per lot: Rs.{pnl_per_lot:.2f}"
+            )
+
+            # Check 1: Profit Target (Rs.600+ per lot)
+            if pnl_per_lot >= PROFIT_TARGET_PER_LOT:
                 logger.info(
-                    f"[TARGET] Profit target reached: {premium_decay_percent:.2f}% decay"
+                    f"[TARGET] Profit target reached: Rs.{pnl_per_lot:.2f} per lot (Target: Rs.{PROFIT_TARGET_PER_LOT})"
                 )
                 return True, EXIT_REASON_PROFIT_TARGET
 

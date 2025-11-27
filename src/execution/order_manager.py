@@ -19,7 +19,7 @@ from config.constants import (
     TRANSACTION_TYPE_BUY,
     TRANSACTION_TYPE_SELL,
 )
-from config.settings import PRODUCT_TYPE, ORDER_TYPE_LIMIT, STOP_LOSS_MULTIPLIER
+from config.settings import PRODUCT_TYPE, ORDER_TYPE_LIMIT, STOP_LOSS_MULTIPLIER, PROFIT_TARGET_PER_LOT
 
 logger = logging.getLogger(__name__)
 
@@ -148,8 +148,12 @@ class OrderManager:
             # Calculate stop loss
             stop_loss = sell_premium * STOP_LOSS_MULTIPLIER
 
-            # Calculate target (40-50% decay means 50-60% remaining)
-            target_premium = net_premium * 0.55  # 45% decay on average
+            # Calculate target premium based on Rs.600 profit per lot
+            # P&L per lot = (entry_net_premium - target_net_premium) × lot_size
+            # 600 = (net_premium - target_net_premium) × lot_size
+            # target_net_premium = net_premium - (600 / lot_size)
+            lot_size = LOT_SIZES.get(symbol, 25)
+            target_premium = net_premium - (PROFIT_TARGET_PER_LOT / lot_size)
 
             trade_data = {
                 "trade_id": trade_id,
@@ -179,8 +183,9 @@ class OrderManager:
             trade = self.db.create_trade(trade_data)
 
             logger.info(f"[OK] Trade created successfully: {trade_id}")
-            logger.info(f"Stop Loss: Rs.{stop_loss:.2f}")
-            logger.info(f"Target: Rs.{target_premium:.2f}")
+            logger.info(f"Stop Loss: Rs.{stop_loss:.2f} (sell premium)")
+            logger.info(f"Target: Rs.{PROFIT_TARGET_PER_LOT} profit per lot (Net premium: Rs.{target_premium:.2f})")
+            logger.info(f"Entry Net Premium: Rs.{net_premium:.2f}")
             logger.info(f"{'='*60}\n")
 
             return trade_data
