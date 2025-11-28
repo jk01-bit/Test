@@ -250,6 +250,7 @@ class OrderManager:
 
             # To close spread: Buy back sold option first, then Sell bought option
             # BUY BACK the sold leg FIRST (cover short position to reduce risk)
+            logger.info(f"Placing BUY order first to cover short: {sell_symbol} @ {exit_sell_premium}")
             buy_back_order_id = self.broker.place_order(
                 trading_symbol=sell_symbol,
                 transaction_type=TRANSACTION_TYPE_BUY,
@@ -258,7 +259,35 @@ class OrderManager:
                 price=exit_sell_premium,
             )
 
+            if not buy_back_order_id:
+                logger.error("BUY order failed, not placing SELL order")
+                return False
+
+            # Wait for BUY order to execute before placing SELL
+            # This ensures margin benefit - BUY must complete first
+            logger.info(f"Waiting for BUY order {buy_back_order_id} to execute...")
+            max_wait_time = 30  # Maximum wait time in seconds
+            wait_interval = 1  # Check every 1 second
+            elapsed_time = 0
+
+            while elapsed_time < max_wait_time:
+                buy_status = self.broker.get_order_status(buy_back_order_id)
+                if buy_status and buy_status.get("status") == ORDER_STATUS_COMPLETE:
+                    logger.info(f"BUY order {buy_back_order_id} executed successfully")
+                    break
+                elif buy_status and buy_status.get("status") in ["REJECTED", "CANCELLED"]:
+                    logger.error(f"BUY order {buy_back_order_id} was {buy_status.get('status')}: {buy_status.get('status_message', '')}")
+                    return False
+                time.sleep(wait_interval)
+                elapsed_time += wait_interval
+            else:
+                logger.error(f"BUY order {buy_back_order_id} did not execute within {max_wait_time}s")
+                # Cancel the pending buy order
+                self.broker.cancel_order(buy_back_order_id)
+                return False
+
             # SELL the bought leg SECOND (close long position)
+            logger.info(f"Placing SELL order: {buy_symbol} @ {exit_buy_premium}")
             sell_back_order_id = self.broker.place_order(
                 trading_symbol=buy_symbol,
                 transaction_type=TRANSACTION_TYPE_SELL,
@@ -267,8 +296,8 @@ class OrderManager:
                 price=exit_buy_premium,
             )
 
-            if not buy_back_order_id or not sell_back_order_id:
-                logger.error("Failed to place exit orders")
+            if not sell_back_order_id:
+                logger.error("Failed to place SELL exit order")
                 return False
 
             # Calculate P&L
