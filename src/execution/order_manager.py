@@ -248,23 +248,23 @@ class OrderManager:
 
             exit_net_premium = exit_sell_premium - exit_buy_premium
 
-            # To close spread: Sell bought option first, then Buy back sold option
-            # SELL the bought leg FIRST (close long position)
-            sell_back_order_id = self.broker.place_order(
-                trading_symbol=buy_symbol,
-                transaction_type=TRANSACTION_TYPE_SELL,
-                quantity=trade["quantity"],
-                order_type=ORDER_TYPE_LIMIT,
-                price=exit_buy_premium,
-            )
-
-            # BUY BACK the sold leg SECOND (close short position)
+            # To close spread: Buy back sold option first, then Sell bought option
+            # BUY BACK the sold leg FIRST (cover short position to reduce risk)
             buy_back_order_id = self.broker.place_order(
                 trading_symbol=sell_symbol,
                 transaction_type=TRANSACTION_TYPE_BUY,
                 quantity=trade["quantity"],
                 order_type=ORDER_TYPE_LIMIT,
                 price=exit_sell_premium,
+            )
+
+            # SELL the bought leg SECOND (close long position)
+            sell_back_order_id = self.broker.place_order(
+                trading_symbol=buy_symbol,
+                transaction_type=TRANSACTION_TYPE_SELL,
+                quantity=trade["quantity"],
+                order_type=ORDER_TYPE_LIMIT,
+                price=exit_buy_premium,
             )
 
             if not buy_back_order_id or not sell_back_order_id:
