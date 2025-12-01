@@ -171,6 +171,13 @@ class TradingBot:
             self.logger.info("CHECKING FOR ENTRY SIGNALS")
             self.logger.info("="*60)
 
+            # Check if there are already open positions
+            open_trades = self.db.get_open_trades()
+            if open_trades:
+                self.logger.info(f"[SKIP] Already have {len(open_trades)} open position(s). Waiting for exit before new entry.")
+                self.logger.info("="*60 + "\n")
+                return
+
             # Check if we should stop trading
             should_stop, reason = self.risk_manager.should_stop_trading()
             if should_stop:
