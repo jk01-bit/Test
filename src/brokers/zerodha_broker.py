@@ -491,51 +491,50 @@ class ZerodhaBroker:
         import time
 
         try:
-            # Place buy order FIRST (hedge protection before taking risk)
-            logger.info(f"Placing BUY order first: {buy_symbol} @ {buy_price}")
-            buy_order_id = self.place_order(
-                trading_symbol=buy_symbol,
-                transaction_type=TRANSACTION_TYPE_BUY,
-                quantity=quantity,
-                order_type=ORDER_TYPE_LIMIT,
-                price=buy_price,
-            )
-
-            if not buy_order_id:
-                logger.error("BUY order failed, not placing SELL order")
-                return None, None
-
-            # Wait for BUY order to be executed before placing SELL
-            # This ensures margin benefit - BUY must complete first
-            logger.info(f"Waiting for BUY order {buy_order_id} to execute...")
-            max_wait_time = 30  # Maximum wait time in seconds
-            wait_interval = 1  # Check every 1 second
-            elapsed_time = 0
-
-            while elapsed_time < max_wait_time:
-                buy_status = self.get_order_status(buy_order_id)
-                if buy_status and buy_status.get("status") == ORDER_STATUS_COMPLETE:
-                    logger.info(f"BUY order {buy_order_id} executed successfully")
-                    break
-                elif buy_status and buy_status.get("status") in ["REJECTED", "CANCELLED"]:
-                    logger.error(f"BUY order {buy_order_id} was {buy_status.get('status')}: {buy_status.get('status_message', '')}")
-                    return None, None
-                time.sleep(wait_interval)
-                elapsed_time += wait_interval
-            else:
-                logger.error(f"BUY order {buy_order_id} did not execute within {max_wait_time}s")
-                # Cancel the pending buy order
-                self.cancel_order(buy_order_id)
-                return None, None
-
-            # Place sell order SECOND (take risk after protection is in place)
-            logger.info(f"Placing SELL order: {sell_symbol} @ {sell_price}")
+            # Place SELL order FIRST (lock in premium collection)
+            logger.info(f"Placing SELL order first: {sell_symbol} @ {sell_price}")
             sell_order_id = self.place_order(
                 trading_symbol=sell_symbol,
                 transaction_type=TRANSACTION_TYPE_SELL,
                 quantity=quantity,
                 order_type=ORDER_TYPE_LIMIT,
                 price=sell_price,
+            )
+
+            if not sell_order_id:
+                logger.error("SELL order failed, not placing BUY order")
+                return None, None
+
+            # Wait for SELL order to be executed before placing BUY
+            logger.info(f"Waiting for SELL order {sell_order_id} to execute...")
+            max_wait_time = 30  # Maximum wait time in seconds
+            wait_interval = 1  # Check every 1 second
+            elapsed_time = 0
+
+            while elapsed_time < max_wait_time:
+                sell_status = self.get_order_status(sell_order_id)
+                if sell_status and sell_status.get("status") == ORDER_STATUS_COMPLETE:
+                    logger.info(f"SELL order {sell_order_id} executed successfully")
+                    break
+                elif sell_status and sell_status.get("status") in ["REJECTED", "CANCELLED"]:
+                    logger.error(f"SELL order {sell_order_id} was {sell_status.get('status')}: {sell_status.get('status_message', '')}")
+                    return None, None
+                time.sleep(wait_interval)
+                elapsed_time += wait_interval
+            else:
+                logger.error(f"SELL order {sell_order_id} did not execute within {max_wait_time}s")
+                # Cancel the pending sell order
+                self.cancel_order(sell_order_id)
+                return None, None
+
+            # Place BUY order SECOND (hedge after SELL is confirmed)
+            logger.info(f"Placing BUY order: {buy_symbol} @ {buy_price}")
+            buy_order_id = self.place_order(
+                trading_symbol=buy_symbol,
+                transaction_type=TRANSACTION_TYPE_BUY,
+                quantity=quantity,
+                order_type=ORDER_TYPE_LIMIT,
+                price=buy_price,
             )
 
             return sell_order_id, buy_order_id

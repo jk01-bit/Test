@@ -311,7 +311,8 @@ class OrderManager:
             commission = 80
             net_pnl = gross_pnl - commission
 
-            pnl_percent = (net_pnl / trade["margin_used"]) * 100 if trade["margin_used"] > 0 else 0
+            margin_used = trade.get("margin_used", 0)
+            pnl_percent = (net_pnl / margin_used) * 100 if margin_used > 0 else 0
 
             is_winning = net_pnl > 0
 
