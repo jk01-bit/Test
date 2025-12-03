@@ -69,6 +69,18 @@ MAX_GAP_PERCENT = 1.5  # Avoid trading on gaps > 1.5%
 EXPIRY_CUTOFF_TIME = time(14, 0)  # Don't trade expiry after 2 PM
 
 # ============================================================================
+# CPR (CENTRAL PIVOT RANGE) FILTER
+# ============================================================================
+# CPR is calculated from previous day's High, Low, Close
+# Used to filter out false signals when price is in consolidation zone
+#
+# Logic for Option Selling:
+# - Bull Put Spread (Uptrend): Only enter if price > TC (Top CPR)
+# - Bear Call Spread (Downtrend): Only enter if price < BC (Bottom CPR)
+# - If price is INSIDE CPR: No trade (consolidation/indecision zone)
+ENABLE_CPR_FILTER = True  # Set to False to disable CPR filter
+
+# ============================================================================
 # INSTRUMENTS
 # ============================================================================
 TRADING_INSTRUMENTS = ["NIFTY", "BANKNIFTY"]

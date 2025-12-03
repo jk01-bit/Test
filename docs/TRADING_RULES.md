@@ -104,6 +104,53 @@
 | Expiry Cutoff | After 2:00 PM on expiry day | Skip trade |
 | No Trend | EMA flat (< 0.1% difference) | Skip trade |
 | Capital Check | Insufficient margin | Skip trade |
+| **CPR Filter** | Price inside CPR range | Skip trade |
+
+---
+
+## CPR (Central Pivot Range) Filter
+
+### Overview
+CPR (Central Pivot Range) is used as an additional entry filter to avoid false signals when the market is in a consolidation zone.
+
+### CPR Calculation
+CPR levels are calculated from **previous day's OHLC**:
+
+| Level | Formula |
+|-------|---------|
+| Pivot (P) | (High + Low + Close) / 3 |
+| Bottom CPR (BC) | (High + Low) / 2 |
+| Top CPR (TC) | (2 × Pivot) - BC |
+| Resistance 1 (R1) | (2 × Pivot) - Low |
+| Resistance 2 (R2) | Pivot + (High - Low) |
+| Support 1 (S1) | (2 × Pivot) - High |
+| Support 2 (S2) | Pivot - (High - Low) |
+
+### CPR Entry Logic (For Option Selling)
+
+```
+        R2  ─────────────────
+        R1  ─────────────────
+
+        TC  ═════════════════  ← Price ABOVE here → Bull Put Spread OK
+            ║   CPR RANGE   ║  ← Price INSIDE here → NO TRADE
+        BC  ═════════════════  ← Price BELOW here → Bear Call Spread OK
+
+        S1  ─────────────────
+        S2  ─────────────────
+```
+
+| Strategy | CPR Condition | Rationale |
+|----------|---------------|-----------|
+| **Bull Put Spread** (Uptrend) | Price must be **ABOVE TC** | CPR acts as support; confirms bullish strength |
+| **Bear Call Spread** (Downtrend) | Price must be **BELOW BC** | CPR acts as resistance; confirms bearish strength |
+| **Any** | Price **INSIDE CPR** | No trade - consolidation zone with high false signal risk |
+
+### Why CPR Filter Helps
+1. **Avoids False Breakouts**: When price is inside CPR, market is indecisive
+2. **Confirms Trend Strength**: Price outside CPR validates the EMA trend signal
+3. **Better Risk/Reward**: Entry only when trend has structural confirmation
+4. **Reduces Whipsaws**: Filters out trades where price might reverse quickly
 
 ---
 
@@ -189,6 +236,7 @@ Quantity: XXX
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0 | 2025-12-03 | Initial trading rules document |
+| 1.1 | 2025-12-03 | Added CPR (Central Pivot Range) entry filter |
 
 ---
 

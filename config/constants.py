@@ -124,3 +124,12 @@ FILTER_NO_TREND = "NO_CLEAR_TREND"
 FILTER_POSITION_EXISTS = "POSITION_ALREADY_EXISTS"
 FILTER_CAPITAL_INSUFFICIENT = "INSUFFICIENT_CAPITAL"
 FILTER_DAILY_LOSS_LIMIT = "DAILY_LOSS_LIMIT_REACHED"
+FILTER_CPR_INVALID = "CPR_CONDITION_NOT_MET"
+
+# ============================================================================
+# CPR (Central Pivot Range) POSITIONS
+# ============================================================================
+CPR_ABOVE = "ABOVE_CPR"
+CPR_BELOW = "BELOW_CPR"
+CPR_INSIDE = "INSIDE_CPR"
+CPR_UNKNOWN = "UNKNOWN"

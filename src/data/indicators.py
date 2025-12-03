@@ -1,6 +1,6 @@
 """
 Technical Indicators
-Calculate EMAs and identify trends
+Calculate EMAs, CPR (Central Pivot Range), and identify trends
 """
 import logging
 from typing import Dict, Optional, Tuple
@@ -305,3 +305,204 @@ class IndicatorEngine:
         except Exception as e:
             logger.error(f"Error validating trend quality: {e}")
             return False, f"Error: {e}"
+
+    def calculate_cpr(
+        self, prev_high: float, prev_low: float, prev_close: float
+    ) -> Dict[str, float]:
+        """
+        Calculate Central Pivot Range (CPR) levels from previous day's OHLC
+
+        CPR Components:
+        - Pivot (P) = (High + Low + Close) / 3
+        - Top CPR (TC) = (Pivot - BC) + Pivot = 2*P - BC
+        - Bottom CPR (BC) = (High + Low) / 2
+
+        Additional Levels:
+        - R1 = (2 * Pivot) - Low
+        - R2 = Pivot + (High - Low)
+        - S1 = (2 * Pivot) - High
+        - S2 = Pivot - (High - Low)
+
+        Args:
+            prev_high: Previous day's high
+            prev_low: Previous day's low
+            prev_close: Previous day's close
+
+        Returns:
+            Dict with CPR and pivot levels
+        """
+        try:
+            # Calculate Pivot Point
+            pivot = (prev_high + prev_low + prev_close) / 3
+
+            # Calculate CPR (Central Pivot Range)
+            bc = (prev_high + prev_low) / 2  # Bottom CPR
+            tc = (2 * pivot) - bc  # Top CPR
+
+            # Ensure TC > BC (swap if needed)
+            if tc < bc:
+                tc, bc = bc, tc
+
+            # Calculate Support and Resistance levels
+            r1 = (2 * pivot) - prev_low
+            r2 = pivot + (prev_high - prev_low)
+            s1 = (2 * pivot) - prev_high
+            s2 = pivot - (prev_high - prev_low)
+
+            cpr_levels = {
+                "pivot": round(pivot, 2),
+                "tc": round(tc, 2),  # Top CPR
+                "bc": round(bc, 2),  # Bottom CPR
+                "r1": round(r1, 2),  # Resistance 1
+                "r2": round(r2, 2),  # Resistance 2
+                "s1": round(s1, 2),  # Support 1
+                "s2": round(s2, 2),  # Support 2
+                "cpr_width": round(abs(tc - bc), 2),
+                "cpr_width_percent": round((abs(tc - bc) / pivot) * 100, 4),
+            }
+
+            logger.info(
+                f"CPR Levels - Pivot: {pivot:.2f}, TC: {tc:.2f}, BC: {bc:.2f}"
+            )
+            logger.debug(
+                f"Support/Resistance - R1: {r1:.2f}, R2: {r2:.2f}, "
+                f"S1: {s1:.2f}, S2: {s2:.2f}"
+            )
+
+            return cpr_levels
+
+        except Exception as e:
+            logger.error(f"Error calculating CPR: {e}")
+            return {}
+
+    def get_cpr_position(
+        self, current_price: float, cpr_levels: Dict[str, float]
+    ) -> str:
+        """
+        Determine price position relative to CPR
+
+        Args:
+            current_price: Current spot price
+            cpr_levels: Dict with CPR levels (tc, bc, pivot)
+
+        Returns:
+            Position string: 'ABOVE_CPR', 'BELOW_CPR', or 'INSIDE_CPR'
+        """
+        try:
+            if not cpr_levels:
+                logger.warning("CPR levels not available")
+                return "UNKNOWN"
+
+            tc = cpr_levels.get("tc")
+            bc = cpr_levels.get("bc")
+
+            if tc is None or bc is None:
+                return "UNKNOWN"
+
+            if current_price > tc:
+                position = "ABOVE_CPR"
+                logger.info(
+                    f"Price {current_price:.2f} is ABOVE CPR (TC: {tc:.2f})"
+                )
+            elif current_price < bc:
+                position = "BELOW_CPR"
+                logger.info(
+                    f"Price {current_price:.2f} is BELOW CPR (BC: {bc:.2f})"
+                )
+            else:
+                position = "INSIDE_CPR"
+                logger.info(
+                    f"Price {current_price:.2f} is INSIDE CPR "
+                    f"(BC: {bc:.2f} - TC: {tc:.2f})"
+                )
+
+            return position
+
+        except Exception as e:
+            logger.error(f"Error determining CPR position: {e}")
+            return "UNKNOWN"
+
+    def validate_cpr_for_entry(
+        self, current_price: float, cpr_levels: Dict[str, float], trend: str
+    ) -> Tuple[bool, str]:
+        """
+        Validate if CPR condition is favorable for entry based on trend
+
+        For Option Selling:
+        - Bull Put Spread (UPTREND): Price should be ABOVE TC (Top CPR)
+          → Confirms bullish strength, CPR acts as support
+        - Bear Call Spread (DOWNTREND): Price should be BELOW BC (Bottom CPR)
+          → Confirms bearish strength, CPR acts as resistance
+        - INSIDE CPR: No trade (market is consolidating/indecisive)
+
+        Args:
+            current_price: Current spot price
+            cpr_levels: Dict with CPR levels
+            trend: UPTREND or DOWNTREND
+
+        Returns:
+            Tuple of (is_valid, reason)
+        """
+        try:
+            if not cpr_levels:
+                return False, "CPR levels not available"
+
+            cpr_position = self.get_cpr_position(current_price, cpr_levels)
+
+            tc = cpr_levels.get("tc", 0)
+            bc = cpr_levels.get("bc", 0)
+
+            # For Bull Put Spread (Uptrend) - Price must be above TC
+            if trend == TREND_UPTREND:
+                if cpr_position == "ABOVE_CPR":
+                    reason = (
+                        f"CPR OK: Price {current_price:.2f} > TC {tc:.2f} "
+                        f"(bullish confirmation)"
+                    )
+                    logger.info(f"[OK] {reason}")
+                    return True, reason
+                elif cpr_position == "INSIDE_CPR":
+                    reason = (
+                        f"CPR FAIL: Price {current_price:.2f} inside CPR "
+                        f"(BC: {bc:.2f} - TC: {tc:.2f}) - consolidation zone"
+                    )
+                    logger.warning(reason)
+                    return False, reason
+                else:  # BELOW_CPR
+                    reason = (
+                        f"CPR FAIL: Price {current_price:.2f} < BC {bc:.2f} "
+                        f"- contradicts uptrend signal"
+                    )
+                    logger.warning(reason)
+                    return False, reason
+
+            # For Bear Call Spread (Downtrend) - Price must be below BC
+            elif trend == TREND_DOWNTREND:
+                if cpr_position == "BELOW_CPR":
+                    reason = (
+                        f"CPR OK: Price {current_price:.2f} < BC {bc:.2f} "
+                        f"(bearish confirmation)"
+                    )
+                    logger.info(f"[OK] {reason}")
+                    return True, reason
+                elif cpr_position == "INSIDE_CPR":
+                    reason = (
+                        f"CPR FAIL: Price {current_price:.2f} inside CPR "
+                        f"(BC: {bc:.2f} - TC: {tc:.2f}) - consolidation zone"
+                    )
+                    logger.warning(reason)
+                    return False, reason
+                else:  # ABOVE_CPR
+                    reason = (
+                        f"CPR FAIL: Price {current_price:.2f} > TC {tc:.2f} "
+                        f"- contradicts downtrend signal"
+                    )
+                    logger.warning(reason)
+                    return False, reason
+
+            # Sideways or unknown trend
+            return False, f"Invalid trend for CPR validation: {trend}"
+
+        except Exception as e:
+            logger.error(f"Error validating CPR for entry: {e}")
+            return False, f"CPR validation error: {e}"
