@@ -457,14 +457,26 @@ class ZerodhaBroker:
                 order_params["price"] = price
 
             order_id = self.kite.place_order(**order_params)
+
+            # Detailed order logging
+            import pytz
+            from datetime import datetime
+            IST = pytz.timezone("Asia/Kolkata")
+            order_timestamp = datetime.now(IST).strftime("%Y-%m-%d %H:%M:%S")
+
             logger.info(
-                f"Order placed: {trading_symbol} {transaction_type} "
-                f"{quantity} @ {price} - Order ID: {order_id}"
+                f"ORDER PLACED [{order_timestamp}] | "
+                f"Symbol: {trading_symbol} | "
+                f"Type: {transaction_type} | "
+                f"Qty: {quantity} | "
+                f"Price: Rs.{price} | "
+                f"Product: {product} | "
+                f"Order ID: {order_id}"
             )
             return order_id
 
         except Exception as e:
-            logger.error(f"Error placing order: {e}")
+            logger.error(f"ORDER FAILED | Symbol: {trading_symbol} | Type: {transaction_type} | Error: {e}")
             return None
 
     def place_spread_order(
@@ -489,10 +501,63 @@ class ZerodhaBroker:
             Tuple of (sell_order_id, buy_order_id)
         """
         import time
+        from datetime import datetime
+        import pytz
+
+        IST = pytz.timezone("Asia/Kolkata")
+        order_time = datetime.now(IST).strftime("%Y-%m-%d %H:%M:%S")
 
         try:
-            # Place SELL order FIRST (lock in premium collection)
-            logger.info(f"Placing SELL order first: {sell_symbol} @ {sell_price}")
+            logger.info(f"\n{'='*60}")
+            logger.info(f"SPREAD ORDER ENTRY - {order_time}")
+            logger.info(f"{'='*60}")
+            logger.info(f"SELL Leg: {sell_symbol} @ Rs.{sell_price} x {quantity}")
+            logger.info(f"BUY Leg:  {buy_symbol} @ Rs.{buy_price} x {quantity}")
+            logger.info(f"Net Credit: Rs.{sell_price - buy_price:.2f}")
+            logger.info(f"{'='*60}")
+
+            # Place BUY order FIRST (hedge protection before taking risk)
+            logger.info(f"[STEP 1] Placing BUY order first: {buy_symbol} @ Rs.{buy_price}")
+            buy_order_id = self.place_order(
+                trading_symbol=buy_symbol,
+                transaction_type=TRANSACTION_TYPE_BUY,
+                quantity=quantity,
+                order_type=ORDER_TYPE_LIMIT,
+                price=buy_price,
+            )
+
+            if not buy_order_id:
+                logger.error("[FAILED] BUY order failed, not placing SELL order")
+                return None, None
+
+            logger.info(f"[OK] BUY order placed - Order ID: {buy_order_id}")
+
+            # Wait for BUY order to be executed before placing SELL
+            # This ensures margin benefit - BUY must complete first
+            logger.info(f"[STEP 2] Waiting for BUY order {buy_order_id} to execute...")
+            max_wait_time = 30  # Maximum wait time in seconds
+            wait_interval = 1  # Check every 1 second
+            elapsed_time = 0
+
+            while elapsed_time < max_wait_time:
+                buy_status = self.get_order_status(buy_order_id)
+                if buy_status and buy_status.get("status") == ORDER_STATUS_COMPLETE:
+                    avg_price = buy_status.get("average_price", buy_price)
+                    logger.info(f"[OK] BUY order {buy_order_id} executed @ Rs.{avg_price}")
+                    break
+                elif buy_status and buy_status.get("status") in ["REJECTED", "CANCELLED"]:
+                    logger.error(f"[FAILED] BUY order {buy_order_id} was {buy_status.get('status')}: {buy_status.get('status_message', '')}")
+                    return None, None
+                time.sleep(wait_interval)
+                elapsed_time += wait_interval
+            else:
+                logger.error(f"[TIMEOUT] BUY order {buy_order_id} did not execute within {max_wait_time}s")
+                # Cancel the pending buy order
+                self.cancel_order(buy_order_id)
+                return None, None
+
+            # Place SELL order SECOND (take risk after protection is in place)
+            logger.info(f"[STEP 3] Placing SELL order: {sell_symbol} @ Rs.{sell_price}")
             sell_order_id = self.place_order(
                 trading_symbol=sell_symbol,
                 transaction_type=TRANSACTION_TYPE_SELL,
@@ -501,41 +566,17 @@ class ZerodhaBroker:
                 price=sell_price,
             )
 
-            if not sell_order_id:
-                logger.error("SELL order failed, not placing BUY order")
-                return None, None
-
-            # Wait for SELL order to be executed before placing BUY
-            logger.info(f"Waiting for SELL order {sell_order_id} to execute...")
-            max_wait_time = 30  # Maximum wait time in seconds
-            wait_interval = 1  # Check every 1 second
-            elapsed_time = 0
-
-            while elapsed_time < max_wait_time:
-                sell_status = self.get_order_status(sell_order_id)
-                if sell_status and sell_status.get("status") == ORDER_STATUS_COMPLETE:
-                    logger.info(f"SELL order {sell_order_id} executed successfully")
-                    break
-                elif sell_status and sell_status.get("status") in ["REJECTED", "CANCELLED"]:
-                    logger.error(f"SELL order {sell_order_id} was {sell_status.get('status')}: {sell_status.get('status_message', '')}")
-                    return None, None
-                time.sleep(wait_interval)
-                elapsed_time += wait_interval
+            if sell_order_id:
+                logger.info(f"[OK] SELL order placed - Order ID: {sell_order_id}")
+                logger.info(f"\n{'='*60}")
+                logger.info(f"SPREAD ORDER SUMMARY")
+                logger.info(f"{'='*60}")
+                logger.info(f"BUY Order ID:  {buy_order_id} - {buy_symbol}")
+                logger.info(f"SELL Order ID: {sell_order_id} - {sell_symbol}")
+                logger.info(f"Quantity: {quantity}")
+                logger.info(f"{'='*60}\n")
             else:
-                logger.error(f"SELL order {sell_order_id} did not execute within {max_wait_time}s")
-                # Cancel the pending sell order
-                self.cancel_order(sell_order_id)
-                return None, None
-
-            # Place BUY order SECOND (hedge after SELL is confirmed)
-            logger.info(f"Placing BUY order: {buy_symbol} @ {buy_price}")
-            buy_order_id = self.place_order(
-                trading_symbol=buy_symbol,
-                transaction_type=TRANSACTION_TYPE_BUY,
-                quantity=quantity,
-                order_type=ORDER_TYPE_LIMIT,
-                price=buy_price,
-            )
+                logger.error(f"[FAILED] SELL order failed")
 
             return sell_order_id, buy_order_id
 
