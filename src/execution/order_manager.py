@@ -58,8 +58,9 @@ class OrderManager:
             Trade dict if successful, None otherwise
         """
         try:
+            order_time = datetime.now(IST).strftime("%Y-%m-%d %H:%M:%S")
             logger.info(f"\n{'='*60}")
-            logger.info("EXECUTING SPREAD ORDER")
+            logger.info(f"EXECUTING SPREAD ORDER - {order_time}")
             logger.info(f"{'='*60}")
 
             symbol = signal["instrument"]
@@ -69,8 +70,16 @@ class OrderManager:
             option_type = signal["option_type"]
             lot_quantity = signal["lot_quantity"]
 
+            logger.info(f"Instrument: {symbol}")
+            logger.info(f"Spread Type: {signal['spread_type']}")
+            logger.info(f"Option Type: {option_type}")
+            logger.info(f"Sell Strike: {sell_strike} | Buy Strike: {buy_strike}")
+            logger.info(f"Expiry: {expiry.strftime('%Y-%m-%d') if hasattr(expiry, 'strftime') else expiry}")
+            logger.info(f"Trend: {signal['trend']}")
+            logger.info(f"Spot Price: Rs.{signal['spot_price']}")
+
             # Step 1: Get trading symbols
-            logger.info("Step 1: Getting trading symbols...")
+            logger.info("\nStep 1: Getting trading symbols...")
             sell_symbol, buy_symbol = self.option_chain.get_trading_symbols(
                 symbol=symbol,
                 expiry=expiry,
