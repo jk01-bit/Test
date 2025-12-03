@@ -101,6 +101,7 @@ EXIT_REASON_TIME_EXIT = "TIME_EXIT"
 EXIT_REASON_DAILY_LOSS_LIMIT = "DAILY_LOSS_LIMIT"
 EXIT_REASON_MANUAL = "MANUAL"
 EXIT_REASON_ERROR = "ERROR"
+EXIT_REASON_EXPIRED = "EXPIRED"  # Options expired worthless
 
 # ============================================================================
 # NOTIFICATION TYPES

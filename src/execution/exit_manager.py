@@ -185,7 +185,23 @@ class ExitManager:
                     "stop_loss_value": trade.stop_loss_value,
                     "quantity": trade.quantity,
                     "lot_size": trade.lot_size,
+                    "buy_premium": trade.buy_premium,
+                    "sell_premium": trade.sell_premium,
                 }
+
+                # Check if trade has already expired (expiry date has passed)
+                if trade.expiry:
+                    expiry_date = trade.expiry.date() if hasattr(trade.expiry, 'date') else trade.expiry
+                    today = datetime.now(IST).date()
+                    if expiry_date < today:
+                        logger.warning(
+                            f"Trade {trade.trade_id} has expired (expiry: {expiry_date}, today: {today}). "
+                            f"Marking as EXPIRED with max profit (options expired worthless)."
+                        )
+                        # Options expired worthless - we keep the full premium received
+                        self._close_expired_trade(trade, trade_dict)
+                        closed_trades.append(trade_dict)
+                        continue
 
                 # Check exit conditions
                 should_exit, reason = self.check_exit_conditions(trade_dict)
@@ -213,6 +229,60 @@ class ExitManager:
         except Exception as e:
             logger.error(f"Error monitoring positions: {e}")
             return []
+
+    def _close_expired_trade(self, trade, trade_dict: Dict) -> bool:
+        """
+        Close a trade that has expired (expiry date has passed).
+        Options expire worthless, so we keep the full net premium received.
+
+        Args:
+            trade: SQLAlchemy Trade object
+            trade_dict: Trade dictionary
+
+        Returns:
+            True if successfully closed
+        """
+        try:
+            # Options expired worthless - exit premiums are 0
+            exit_sell_premium = 0.0
+            exit_buy_premium = 0.0
+            exit_net_premium = 0.0
+
+            # P&L = Net premium received at entry (since options expired worthless)
+            # For credit spreads, we keep the full premium received
+            gross_pnl = trade.net_premium * trade.quantity
+            commission = 0.0  # No commission for expired options
+            net_pnl = gross_pnl - commission
+
+            # Calculate P&L percentage
+            pnl_percent = (net_pnl / (trade.net_premium * trade.quantity) * 100) if trade.net_premium > 0 else 0
+
+            update_data = {
+                "status": "CLOSED",
+                "exit_time": datetime.now(IST),
+                "exit_sell_premium": exit_sell_premium,
+                "exit_buy_premium": exit_buy_premium,
+                "exit_net_premium": exit_net_premium,
+                "exit_reason": "EXPIRED",
+                "gross_pnl": gross_pnl,
+                "net_pnl": net_pnl,
+                "commission": commission,
+                "pnl_percent": pnl_percent,
+                "is_winning_trade": net_pnl > 0,
+            }
+
+            self.db.update_trade(trade.trade_id, update_data)
+
+            logger.info(
+                f"[EXPIRED] Trade {trade.trade_id} closed - Options expired worthless. "
+                f"Net P&L: Rs.{net_pnl:.2f} (kept full premium)"
+            )
+
+            return True
+
+        except Exception as e:
+            logger.error(f"Error closing expired trade {trade.trade_id}: {e}")
+            return False
 
     def force_exit_all_positions(self, reason: str = "MANUAL") -> int:
         """
