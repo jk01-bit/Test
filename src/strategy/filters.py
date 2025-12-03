@@ -24,6 +24,7 @@ from config.constants import (
     FILTER_POSITION_EXISTS,
     FILTER_CAPITAL_INSUFFICIENT,
     FILTER_DAILY_LOSS_LIMIT,
+    FILTER_CPR_INVALID,
     TREND_UPTREND,
     TREND_DOWNTREND,
 )
@@ -252,6 +253,106 @@ class EntryFilters:
         )
         return True, "Within daily limit"
 
+    def check_cpr_filter(
+        self,
+        spot_price: float,
+        cpr_levels: dict,
+        trend: str,
+    ) -> Tuple[bool, str]:
+        """
+        Check if CPR (Central Pivot Range) condition is favorable for entry
+
+        For Option Selling Strategy:
+        - Bull Put Spread (UPTREND): Price must be ABOVE TC (Top CPR)
+          → CPR acts as support, confirms bullish strength
+        - Bear Call Spread (DOWNTREND): Price must be BELOW BC (Bottom CPR)
+          → CPR acts as resistance, confirms bearish strength
+        - Price INSIDE CPR: No trade (consolidation zone, high false signal risk)
+
+        Args:
+            spot_price: Current spot price
+            cpr_levels: Dict with CPR levels (tc, bc, pivot)
+            trend: Identified trend (UPTREND or DOWNTREND)
+
+        Returns:
+            Tuple of (passed, reason)
+        """
+        try:
+            if not cpr_levels:
+                logger.warning("CPR levels not available - skipping CPR filter")
+                return False, f"{FILTER_CPR_INVALID}: CPR levels not available"
+
+            tc = cpr_levels.get("tc")
+            bc = cpr_levels.get("bc")
+
+            if tc is None or bc is None:
+                logger.warning("CPR TC/BC values missing")
+                return False, f"{FILTER_CPR_INVALID}: CPR values missing"
+
+            # Determine price position relative to CPR
+            if spot_price > tc:
+                cpr_position = "ABOVE_CPR"
+            elif spot_price < bc:
+                cpr_position = "BELOW_CPR"
+            else:
+                cpr_position = "INSIDE_CPR"
+
+            # Validate based on trend
+            if trend == TREND_UPTREND:
+                # For Bull Put Spread - price must be above TC
+                if cpr_position == "ABOVE_CPR":
+                    reason = (
+                        f"Price {spot_price:.2f} > TC {tc:.2f} "
+                        f"(bullish confirmation for Bull Put)"
+                    )
+                    logger.info(f"[OK] CPR filter passed: {reason}")
+                    return True, f"CPR OK: {reason}"
+                elif cpr_position == "INSIDE_CPR":
+                    reason = (
+                        f"Price {spot_price:.2f} inside CPR "
+                        f"[{bc:.2f}-{tc:.2f}] - consolidation zone"
+                    )
+                    logger.warning(f"[FAIL] CPR filter failed: {reason}")
+                    return False, f"{FILTER_CPR_INVALID}: {reason}"
+                else:  # BELOW_CPR
+                    reason = (
+                        f"Price {spot_price:.2f} < BC {bc:.2f} "
+                        f"- contradicts uptrend"
+                    )
+                    logger.warning(f"[FAIL] CPR filter failed: {reason}")
+                    return False, f"{FILTER_CPR_INVALID}: {reason}"
+
+            elif trend == TREND_DOWNTREND:
+                # For Bear Call Spread - price must be below BC
+                if cpr_position == "BELOW_CPR":
+                    reason = (
+                        f"Price {spot_price:.2f} < BC {bc:.2f} "
+                        f"(bearish confirmation for Bear Call)"
+                    )
+                    logger.info(f"[OK] CPR filter passed: {reason}")
+                    return True, f"CPR OK: {reason}"
+                elif cpr_position == "INSIDE_CPR":
+                    reason = (
+                        f"Price {spot_price:.2f} inside CPR "
+                        f"[{bc:.2f}-{tc:.2f}] - consolidation zone"
+                    )
+                    logger.warning(f"[FAIL] CPR filter failed: {reason}")
+                    return False, f"{FILTER_CPR_INVALID}: {reason}"
+                else:  # ABOVE_CPR
+                    reason = (
+                        f"Price {spot_price:.2f} > TC {tc:.2f} "
+                        f"- contradicts downtrend"
+                    )
+                    logger.warning(f"[FAIL] CPR filter failed: {reason}")
+                    return False, f"{FILTER_CPR_INVALID}: {reason}"
+
+            # Sideways or unknown trend
+            return False, f"{FILTER_CPR_INVALID}: Invalid trend {trend}"
+
+        except Exception as e:
+            logger.error(f"Error in CPR filter: {e}")
+            return False, f"{FILTER_CPR_INVALID}: Error - {e}"
+
     def apply_all_filters(
         self,
         trend: str,
@@ -262,9 +363,11 @@ class EntryFilters:
         available_capital: float,
         daily_loss_limit: float,
         current_time: datetime = None,
+        spot_price: float = None,
+        cpr_levels: dict = None,
     ) -> Tuple[bool, str]:
         """
-        Apply all entry filters
+        Apply all entry filters including CPR
 
         Args:
             trend: Identified trend
@@ -275,6 +378,8 @@ class EntryFilters:
             available_capital: Available capital
             daily_loss_limit: Daily loss limit
             current_time: Current time (defaults to now)
+            spot_price: Current spot price (for CPR filter)
+            cpr_levels: CPR levels dict (for CPR filter)
 
         Returns:
             Tuple of (all_passed, failure_reason)
@@ -294,6 +399,14 @@ class EntryFilters:
             ("Position Limit", self.check_position_filter()),
             ("Capital", self.check_capital_filter(required_margin, available_capital)),
         ]
+
+        # Add CPR filter if data is available
+        if spot_price is not None and cpr_levels is not None:
+            filters.append(
+                ("CPR", self.check_cpr_filter(spot_price, cpr_levels, trend))
+            )
+        else:
+            logger.warning("CPR data not available - skipping CPR filter")
 
         # Check each filter
         failed_filters = []

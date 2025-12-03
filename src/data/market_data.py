@@ -1,6 +1,6 @@
 """
 Market Data Handler
-Fetches and processes market data
+Fetches and processes market data including CPR (Central Pivot Range)
 """
 import logging
 from datetime import datetime, timedelta
@@ -33,6 +33,10 @@ class MarketDataHandler:
         # Cache instrument tokens
         self.instrument_tokens = {}
         self._load_instrument_tokens()
+
+        # Cache CPR levels (calculated once per day)
+        self._cpr_cache = {}
+        self._cpr_cache_date = None
 
     def _load_instrument_tokens(self):
         """Load and cache instrument tokens"""
@@ -324,4 +328,165 @@ class MarketDataHandler:
 
         except Exception as e:
             logger.error(f"Error getting next expiry: {e}")
+            return None
+
+    def get_previous_day_ohlc(self, symbol: str) -> Optional[Dict]:
+        """
+        Get previous trading day's OHLC data for CPR calculation
+
+        Args:
+            symbol: NIFTY or BANKNIFTY
+
+        Returns:
+            Dict with high, low, close of previous day
+        """
+        try:
+            # Get daily candles for last 5 days (to handle holidays/weekends)
+            to_date = datetime.now(IST)
+            from_date = to_date - timedelta(days=7)
+
+            df = self.get_historical_candles(
+                symbol=symbol,
+                from_date=from_date,
+                to_date=to_date,
+                interval="day",
+            )
+
+            if df.empty or len(df) < 2:
+                logger.error(f"Insufficient daily data for {symbol}")
+                return None
+
+            # Get previous day's data (second last row)
+            prev_day = df.iloc[-2]
+
+            ohlc = {
+                "date": prev_day.get("date", None),
+                "open": float(prev_day["open"]),
+                "high": float(prev_day["high"]),
+                "low": float(prev_day["low"]),
+                "close": float(prev_day["close"]),
+            }
+
+            logger.info(
+                f"Previous day OHLC for {symbol}: "
+                f"O={ohlc['open']}, H={ohlc['high']}, "
+                f"L={ohlc['low']}, C={ohlc['close']}"
+            )
+
+            return ohlc
+
+        except Exception as e:
+            logger.error(f"Error fetching previous day OHLC for {symbol}: {e}")
+            return None
+
+    def get_cpr_levels(self, symbol: str, force_refresh: bool = False) -> Optional[Dict]:
+        """
+        Get CPR (Central Pivot Range) levels for a symbol
+
+        CPR is calculated from previous day's High, Low, Close.
+        Results are cached for the entire trading day.
+
+        Args:
+            symbol: NIFTY or BANKNIFTY
+            force_refresh: Force recalculation even if cached
+
+        Returns:
+            Dict with CPR levels (pivot, tc, bc, r1, r2, s1, s2)
+        """
+        try:
+            today = datetime.now(IST).date()
+
+            # Check if we have cached CPR for today
+            if (
+                not force_refresh
+                and self._cpr_cache_date == today
+                and symbol in self._cpr_cache
+            ):
+                logger.debug(f"Using cached CPR levels for {symbol}")
+                return self._cpr_cache[symbol]
+
+            # Get previous day's OHLC
+            prev_ohlc = self.get_previous_day_ohlc(symbol)
+
+            if not prev_ohlc:
+                logger.error(f"Cannot calculate CPR - no previous day data for {symbol}")
+                return None
+
+            # Calculate CPR using IndicatorEngine
+            from src.data.indicators import IndicatorEngine
+
+            indicator_engine = IndicatorEngine()
+            cpr_levels = indicator_engine.calculate_cpr(
+                prev_high=prev_ohlc["high"],
+                prev_low=prev_ohlc["low"],
+                prev_close=prev_ohlc["close"],
+            )
+
+            if cpr_levels:
+                # Add metadata
+                cpr_levels["prev_day_date"] = prev_ohlc.get("date")
+                cpr_levels["calculated_at"] = datetime.now(IST)
+
+                # Cache the result
+                self._cpr_cache[symbol] = cpr_levels
+                self._cpr_cache_date = today
+
+                logger.info(
+                    f"CPR calculated for {symbol}: "
+                    f"Pivot={cpr_levels['pivot']}, "
+                    f"TC={cpr_levels['tc']}, BC={cpr_levels['bc']}"
+                )
+
+            return cpr_levels
+
+        except Exception as e:
+            logger.error(f"Error calculating CPR for {symbol}: {e}")
+            return None
+
+    def get_cpr_with_current_price(self, symbol: str) -> Optional[Dict]:
+        """
+        Get CPR levels along with current price position
+
+        Args:
+            symbol: NIFTY or BANKNIFTY
+
+        Returns:
+            Dict with CPR levels and current price position
+        """
+        try:
+            # Get CPR levels
+            cpr_levels = self.get_cpr_levels(symbol)
+
+            if not cpr_levels:
+                return None
+
+            # Get current spot price
+            spot_price = self.get_spot_price(symbol)
+
+            if not spot_price:
+                logger.error(f"Cannot get spot price for {symbol}")
+                return None
+
+            # Determine position relative to CPR
+            from src.data.indicators import IndicatorEngine
+
+            indicator_engine = IndicatorEngine()
+            cpr_position = indicator_engine.get_cpr_position(spot_price, cpr_levels)
+
+            result = {
+                **cpr_levels,
+                "spot_price": spot_price,
+                "cpr_position": cpr_position,
+            }
+
+            logger.info(
+                f"{symbol} CPR Status: Spot={spot_price}, "
+                f"Position={cpr_position}, "
+                f"CPR Range=[{cpr_levels['bc']}-{cpr_levels['tc']}]"
+            )
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Error getting CPR with current price for {symbol}: {e}")
             return None

@@ -29,6 +29,7 @@ from config.settings import (
     MARGIN_UTILIZATION,
     MAX_DAILY_LOSS,
     POSITION_SIZE,
+    ENABLE_CPR_FILTER,
 )
 
 logger = logging.getLogger(__name__)
@@ -122,6 +123,19 @@ class SignalGenerator:
 
             logger.info(f"India VIX: {india_vix}, Gap: {gap_percent:.2f}%")
 
+            # Step 4.1: Get CPR levels for entry filter
+            cpr_levels = None
+            if ENABLE_CPR_FILTER:
+                logger.info("Step 4.1: Fetching CPR levels...")
+                cpr_levels = self.market_data.get_cpr_levels(symbol)
+                if cpr_levels:
+                    logger.info(
+                        f"CPR Levels - Pivot: {cpr_levels['pivot']}, "
+                        f"TC: {cpr_levels['tc']}, BC: {cpr_levels['bc']}"
+                    )
+                else:
+                    logger.warning("Could not fetch CPR levels")
+
             # Step 5: Determine spread type and option type
             if trend == TREND_UPTREND:
                 spread_type = SPREAD_TYPE_BULL_PUT
@@ -180,7 +194,7 @@ class SignalGenerator:
 
             available_capital = TOTAL_CAPITAL * MARGIN_UTILIZATION
 
-            # Step 10: Apply filters
+            # Step 10: Apply filters (including CPR filter)
             logger.info("Step 10: Applying entry filters...")
             filters_passed, filter_reason = self.filters.apply_all_filters(
                 trend=trend,
@@ -190,6 +204,8 @@ class SignalGenerator:
                 required_margin=required_margin,
                 available_capital=available_capital,
                 daily_loss_limit=MAX_DAILY_LOSS,
+                spot_price=spot_price,
+                cpr_levels=cpr_levels,
             )
 
             # Create signal object
@@ -215,6 +231,10 @@ class SignalGenerator:
                 "expiry": expiry,
                 "filters_passed": filters_passed,
                 "filter_reason": filter_reason,
+                # CPR information
+                "cpr_pivot": cpr_levels.get("pivot") if cpr_levels else None,
+                "cpr_tc": cpr_levels.get("tc") if cpr_levels else None,
+                "cpr_bc": cpr_levels.get("bc") if cpr_levels else None,
             }
 
             # Save signal to database
