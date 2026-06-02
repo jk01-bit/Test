@@ -164,6 +164,13 @@ class TradingAgent:
                 print(f"  {t}: {p.qty} @ {p.avg_price}  now {px}  "
                       f"uPnL ₹{p.unrealized(px):,.0f}")
 
+        usd = self.analyst.cost_usd()
+        u = self.analyst.usage
+        print(f"\nAnalyst cost: ${usd:.4f} (~₹{usd*config.USD_INR:.2f}) "
+              f"over {self.analyst.calls} call(s) on {config.MODEL}")
+        print(f"  tokens: in {u['input']:,} / out {u['output']:,} / "
+              f"cache-read {u['cache_read']:,}")
+
 
 def _pos_view(pos: Position) -> dict:
     return {

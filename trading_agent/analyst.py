@@ -79,6 +79,9 @@ class StockAnalyst:
         # Reads ANTHROPIC_API_KEY from the environment.
         self.client = anthropic.Anthropic()
         self.model = config.MODEL
+        # Cumulative token usage across this run, for the cost readout.
+        self.usage = {"input": 0, "output": 0, "cache_read": 0, "cache_write": 0}
+        self.calls = 0
 
     def review(self, snapshot: dict, position: Optional[dict],
                equity: float) -> dict:
@@ -125,8 +128,30 @@ class StockAnalyst:
                 }],
             )
 
+        self._track(resp)
         text = next((b.text for b in resp.content if b.type == "text"), "")
         return self._parse(text)
+
+    def _track(self, resp) -> None:
+        u = getattr(resp, "usage", None)
+        if not u:
+            return
+        self.calls += 1
+        self.usage["input"] += getattr(u, "input_tokens", 0) or 0
+        self.usage["output"] += getattr(u, "output_tokens", 0) or 0
+        self.usage["cache_read"] += getattr(u, "cache_read_input_tokens", 0) or 0
+        self.usage["cache_write"] += getattr(u, "cache_creation_input_tokens", 0) or 0
+
+    def cost_usd(self) -> float:
+        """Estimated USD cost of this run's analyst calls."""
+        rates = config.PRICING.get(self.model, config.PRICING["claude-opus-4-8"])
+        in_rate, out_rate = rates["in"] / 1e6, rates["out"] / 1e6
+        return (
+            self.usage["input"] * in_rate
+            + self.usage["output"] * out_rate
+            + self.usage["cache_read"] * in_rate * 0.1     # cache hits ~0.1x
+            + self.usage["cache_write"] * in_rate * 1.25    # cache writes ~1.25x
+        )
 
     @staticmethod
     def _parse(text: str) -> dict:

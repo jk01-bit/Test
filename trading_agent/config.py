@@ -57,8 +57,20 @@ WATCHLIST = [
 ]
 
 # --- Claude (the analyst) --------------------------------------------------
-MODEL = "claude-opus-4-8"
+# Pick the brain from .env: claude-opus-4-8 (default, sharpest),
+# claude-sonnet-4-6 (~40% cheaper), or claude-haiku-4-5 (~80% cheaper).
+MODEL = os.getenv("MODEL", "claude-opus-4-8")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+
+# USD price per 1M tokens, used to estimate per-run cost.
+PRICING = {
+    "claude-opus-4-8":   {"in": 5.0,  "out": 25.0},
+    "claude-opus-4-7":   {"in": 5.0,  "out": 25.0},
+    "claude-opus-4-6":   {"in": 5.0,  "out": 25.0},
+    "claude-sonnet-4-6": {"in": 3.0,  "out": 15.0},
+    "claude-haiku-4-5":  {"in": 1.0,  "out": 5.0},
+}
+USD_INR = _float("USD_INR", 83.0)  # rough FX, only for displaying ₹ estimate
 
 # --- Persistence -----------------------------------------------------------
 STATE_FILE = os.path.join(os.path.dirname(__file__), "state.json")
