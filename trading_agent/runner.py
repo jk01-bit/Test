@@ -12,7 +12,7 @@ from typing import Dict, Optional
 import config
 import market_data
 import risk
-from analyst import StockAnalyst
+from analyst import get_analyst
 from broker import get_broker
 from portfolio import Portfolio, Position
 
@@ -21,7 +21,7 @@ class TradingAgent:
     def __init__(self):
         self.portfolio = Portfolio.load(config.STATE_FILE, config.STARTING_CAPITAL)
         self.broker = get_broker()
-        self.analyst = StockAnalyst()
+        self.analyst = get_analyst()
 
     # --- helpers -----------------------------------------------------------
     def _snapshots(self) -> Dict[str, dict]:
@@ -164,12 +164,8 @@ class TradingAgent:
                 print(f"  {t}: {p.qty} @ {p.avg_price}  now {px}  "
                       f"uPnL ₹{p.unrealized(px):,.0f}")
 
-        usd = self.analyst.cost_usd()
-        u = self.analyst.usage
-        print(f"\nAnalyst cost: ${usd:.4f} (~₹{usd*config.USD_INR:.2f}) "
-              f"over {self.analyst.calls} call(s) on {config.MODEL}")
-        print(f"  tokens: in {u['input']:,} / out {u['output']:,} / "
-              f"cache-read {u['cache_read']:,}")
+        print()
+        print(self.analyst.cost_summary())
 
 
 def _pos_view(pos: Position) -> dict:

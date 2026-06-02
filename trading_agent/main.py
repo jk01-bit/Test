@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import shutil
 import sys
 import time
 
@@ -17,10 +18,17 @@ import config
 
 def _preflight() -> bool:
     ok = True
-    if not config.ANTHROPIC_API_KEY:
-        print("ERROR: ANTHROPIC_API_KEY is not set. Copy .env.example to .env "
-              "and add your key.")
-        ok = False
+    if config.BRAIN == "api":
+        if not config.ANTHROPIC_API_KEY:
+            print("ERROR: BRAIN=api but ANTHROPIC_API_KEY is not set. Add it to "
+                  ".env, or use BRAIN=claude_code to use your subscription.")
+            ok = False
+    else:  # claude_code
+        if not shutil.which(config.CLAUDE_CLI):
+            print(f"ERROR: BRAIN=claude_code but '{config.CLAUDE_CLI}' is not on "
+                  "PATH. Install Claude Code and log in with your subscription "
+                  "(claude login), or set BRAIN=api.")
+            ok = False
     if config.TRADING_MODE == "live":
         print("WARNING: TRADING_MODE=live, but LiveBroker is a stub. Real orders "
               "will not be placed until you implement it. Use 'paper' to test.")
@@ -46,8 +54,9 @@ def main() -> int:
     from runner import TradingAgent
 
     agent = TradingAgent()
-    print(f"Mode: {config.TRADING_MODE} | Capital: ₹{config.STARTING_CAPITAL:,.0f} "
-          f"| Monthly target: {config.MONTHLY_TARGET_PCT*100:.0f}%")
+    print(f"Brain: {agent.analyst.label} | Mode: {config.TRADING_MODE} | "
+          f"Capital: ₹{config.STARTING_CAPITAL:,.0f} | "
+          f"Monthly target: {config.MONTHLY_TARGET_PCT*100:.0f}%")
 
     if not args.loop:
         agent.run_once()

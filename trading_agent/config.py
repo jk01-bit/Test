@@ -56,7 +56,20 @@ WATCHLIST = [
     "ICICIBANK.NS",
 ]
 
-# --- Claude (the analyst) --------------------------------------------------
+# --- Analyst brain ---------------------------------------------------------
+# "claude_code" = drive analysis via the Claude Code CLI using your Claude
+#                 subscription (e.g. Max plan). No API credits spent. (default)
+# "api"         = call the Anthropic Messages API directly (billed per token).
+BRAIN = os.getenv("BRAIN", "claude_code").lower()
+
+# Claude Code CLI settings (used when BRAIN=claude_code)
+CLAUDE_CLI = os.getenv("CLAUDE_CLI", "claude")          # CLI binary name/path
+CLAUDE_CODE_MODEL = os.getenv("CLAUDE_CODE_MODEL")      # optional: "sonnet"/"opus"
+CLAUDE_CLI_TIMEOUT = int(_float("CLAUDE_CLI_TIMEOUT", 120))  # seconds per call
+_extra = os.getenv("CLAUDE_CLI_EXTRA_ARGS", "").strip()
+CLAUDE_CLI_EXTRA_ARGS = _extra.split() if _extra else []
+
+# --- Claude API (the analyst) — only used when BRAIN=api -------------------
 # Pick the brain from .env: claude-opus-4-8 (default, sharpest),
 # claude-sonnet-4-6 (~40% cheaper), or claude-haiku-4-5 (~80% cheaper).
 MODEL = os.getenv("MODEL", "claude-opus-4-8")

@@ -7,6 +7,10 @@ risk sizing, order execution, profit booking, and bookkeeping around it.
 It starts from **₹1,00,000 (1 lakh)** of capital and runs in **paper mode** by
 default (simulated fills, no real money, no broker account needed).
 
+By default the analyst runs through **Claude Code using your Claude subscription
+(e.g. Max plan)** — so there are **no per-call API charges**. You can switch to
+the metered Anthropic API instead by setting `BRAIN=api`.
+
 ---
 
 ## ⚠️ Read this first — about the "10% per month" goal
@@ -38,7 +42,11 @@ every trade the agent makes before you even consider real money.
    and RSI14 for each watchlist stock.
 2. **`analyst.py`** — Claude reviews the snapshot + your current position and
    returns a structured decision (action, confidence, entry, stop, target,
-   rationale). Uses prompt caching + adaptive thinking + JSON-schema output.
+   rationale). Two interchangeable brains, chosen by `BRAIN` in `.env`:
+   - `claude_code` (default): shells out to the Claude Code CLI (`claude -p`),
+     authenticated with your subscription — **no API credits spent**.
+   - `api`: calls the Anthropic API directly (billed per token; prompt caching
+     + adaptive thinking + JSON-schema output).
 3. **`risk.py`** — sizes every position so hitting its stop costs ≤ 2% of
    equity, caps position weight, and enforces the daily loss breaker.
 4. **`broker.py`** — `PaperBroker` simulates fills with slippage + commission.
@@ -58,8 +66,19 @@ python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
 cp .env.example .env
-# edit .env and add your ANTHROPIC_API_KEY
 ```
+
+**Default brain — Claude Code (your subscription, no API cost):**
+1. Install Claude Code and log in once with your Max-plan account:
+   ```bash
+   claude login
+   ```
+2. That's it — leave `BRAIN=claude_code` in `.env`. The agent calls `claude -p`
+   under the hood. (Subscription usage limits apply, so run a few passes/day,
+   not a tight loop.)
+
+**Alternative brain — Anthropic API (metered):** set `BRAIN=api` and add your
+`ANTHROPIC_API_KEY` to `.env`.
 
 ## Run
 
@@ -75,6 +94,7 @@ python main.py --reset    # wipe saved state and start fresh
 
 | Setting | Default | Meaning |
 |---|---|---|
+| `BRAIN` | claude_code | Analyst brain: `claude_code` (subscription) or `api` |
 | `CAPITAL` | 100000 | Starting capital (₹) |
 | `MONTHLY_TARGET_PCT` | 0.10 | Aspirational ceiling; stops new risk once hit |
 | `MAX_RISK_PER_TRADE_PCT` | 0.02 | Max equity risked per trade (drives sizing) |
