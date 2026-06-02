@@ -1,0 +1,10 @@
+# Secrets & local state
+.env
+state.json
+*.log
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/

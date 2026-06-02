@@ -1,0 +1,6 @@
+# Claude-powered stock market analyst agent
+anthropic>=0.69.0      # Claude API (the analyst brain)
+yfinance>=0.2.40       # Market data for NSE equities (e.g. RELIANCE.NS)
+pandas>=2.1.0
+numpy>=1.26.0
+python-dotenv>=1.0.0
